@@ -101,14 +101,32 @@ class PlayerCore: ObservableObject {
         Task { await loadAndPlay(track) }
     }
 
+    /// Play a collection starting from a given index — fixes shuffle bug by
+    /// setting the full queue first so next() always has tracks to pick from
+    func playCollection(_ tracks: [Track], startIndex: Int) {
+        queue = tracks
+        let idx = max(0, min(startIndex, tracks.count - 1))
+        Task { await loadAndPlay(tracks[idx]) }
+    }
+
     func next() {
         guard !queue.isEmpty else { return }
         if isShuffle {
-            let idx = Int.random(in: 0..<queue.count)
+            // Pick random track that is not the current one
+            var idx = Int.random(in: 0..<queue.count)
+            if queue.count > 1, let current = currentTrack {
+                while queue[idx].id == current.id {
+                    idx = Int.random(in: 0..<queue.count)
+                }
+            }
             Task { await loadAndPlay(queue[idx]) }
         } else {
             guard let current = currentTrack,
-                  let idx = queue.firstIndex(of: current) else { return }
+                  let idx = queue.firstIndex(of: current) else {
+                // Queue set but no current track — play first
+                if !queue.isEmpty { Task { await loadAndPlay(queue[0]) } }
+                return
+            }
             let nextIdx = (idx + 1) % queue.count
             Task { await loadAndPlay(queue[nextIdx]) }
         }

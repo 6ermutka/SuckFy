@@ -162,6 +162,39 @@ struct LikedSongsView: View {
                     Text("Liked Songs").font(.system(size: 36, weight: .bold))
                     Text("\(library.likedSongs.count) songs")
                         .font(.system(size: 13)).foregroundStyle(.secondary)
+
+                    // Play / Shuffle buttons
+                    if !library.likedSongs.isEmpty {
+                        HStack(spacing: 10) {
+                            // Shuffle
+                            Button {
+                                player.isShuffle = true
+                                player.playCollection(library.likedSongs, startIndex: Int.random(in: 0..<library.likedSongs.count))
+                            } label: {
+                                Label("Shuffle", systemImage: "shuffle")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(.black)
+                                    .padding(.horizontal, 18)
+                                    .padding(.vertical, 8)
+                                    .background(Color.white, in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+
+                            // Play
+                            Button {
+                                player.isShuffle = false
+                                player.playCollection(library.likedSongs, startIndex: 0)
+                            } label: {
+                                Label("Play", systemImage: "play.fill")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 18)
+                                    .padding(.vertical, 8)
+                                    .background(Color.green, in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
                 }
             }
             .padding(.horizontal, 24)
@@ -187,7 +220,8 @@ struct LikedSongsView: View {
                             TrackListRow(track: track, index: i, isHovered: hoveredId == track.id)
                                 .onHover { hoveredId = $0 ? track.id : nil }
                                 .onTapGesture(count: 2) {
-                                    player.play(track)
+                                    player.isShuffle = false
+                                    player.playCollection(library.likedSongs, startIndex: i)
                                 }
                         }
                     }
