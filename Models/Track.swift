@@ -1,18 +1,51 @@
 import Foundation
 import SwiftUI
 
+// MARK: - Track Source
+
+enum TrackSource: String, Codable {
+    case spotify    // Downloaded via Tidal/song.link
+    case soundCloud // Downloaded via yt-dlp + SC OAuth
+    case itunes     // iTunes search result (downloaded via Tidal)
+
+    var icon: String {
+        switch self {
+        case .spotify:    return "s.circle.fill"
+        case .soundCloud: return "cloud.fill"
+        case .itunes:     return "s.circle.fill"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .spotify:    return Color.green
+        case .soundCloud: return Color.orange
+        case .itunes:     return Color.green
+        }
+    }
+
+    var label: String {
+        switch self {
+        case .spotify:    return "Spotify"
+        case .soundCloud: return "SoundCloud"
+        case .itunes:     return "Spotify"
+        }
+    }
+}
+
 // MARK: - Track Model
 
 struct Track: Identifiable, Equatable, Hashable {
-    let id: String          // Spotify track ID
+    let id: String
     let title: String
     let artist: String
     let album: String
     let artworkURL: URL?
     let duration: TimeInterval
+    var source: TrackSource = .spotify
 
     // Playback
-    var localURL: URL?      // Downloaded file path
+    var localURL: URL?
     var isDownloaded: Bool { localURL != nil }
     var isDownloading: Bool = false
 
@@ -25,7 +58,19 @@ struct Track: Identifiable, Equatable, Hashable {
         return String(format: "%d:%02d", m, s)
     }
 
-    var spotifyURL: URL? { URL(string: "https://open.spotify.com/track/\(id)") }
+    var isSoundCloud: Bool { id.hasPrefix("sc:") }
+    var isSpotify: Bool { !isSoundCloud && !id.hasPrefix("itunes:") }
+    var soundCloudID: String? { isSoundCloud ? String(id.dropFirst(3)) : nil }
+
+    var spotifyURL: URL? {
+        guard isSpotify else { return nil }
+        return URL(string: "https://open.spotify.com/track/\(id)")
+    }
+
+    var soundCloudURL: URL? {
+        guard isSoundCloud else { return nil }
+        return nil // stored in webURL via SCTrack
+    }
 
     // MARK: - Conversion from Spotify API response
     init(from spotify: SpotifyTrack) {
@@ -35,12 +80,14 @@ struct Track: Identifiable, Equatable, Hashable {
         self.album = spotify.album.name
         self.artworkURL = spotify.artworkURL
         self.duration = spotify.duration
+        self.source = spotify.id.hasPrefix("itunes:") ? .itunes : .spotify
         self.localURL = nil
     }
 
     // MARK: - Direct init
     init(id: String, title: String, artist: String, album: String,
-         artworkURL: URL?, duration: TimeInterval, localURL: URL? = nil) {
+         artworkURL: URL?, duration: TimeInterval, localURL: URL? = nil,
+         source: TrackSource = .spotify) {
         self.id = id
         self.title = title
         self.artist = artist
@@ -48,6 +95,7 @@ struct Track: Identifiable, Equatable, Hashable {
         self.artworkURL = artworkURL
         self.duration = duration
         self.localURL = localURL
+        self.source = source
     }
 }
 

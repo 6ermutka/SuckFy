@@ -2,18 +2,60 @@ import SwiftUI
 
 struct SearchView: View {
     @EnvironmentObject var player: PlayerCore
+    @ObservedObject private var sc = SoundCloudService.shared
+    @State private var selectedTab: SearchTab = .spotify
     @State private var searchText = ""
     @State private var spotifyURL = ""
     @State private var searchResults: [Track] = []
+    @State private var scResults: [SCTrack] = []
     @State private var isSearching = false
     @State private var isLoadingURL = false
     @State private var searchError: String?
     @State private var urlError: String?
     @State private var searchTask: Task<Void, Never>?
+    @State private var showSCAuth = false
+
+    enum SearchTab { case spotify, soundcloud }
+
 
     var body: some View {
         VStack(spacing: 0) {
             VStack(spacing: 10) {
+                // --- Tab picker ---
+                HStack(spacing: 0) {
+                    tabButton("Spotify", tab: .spotify, color: .green)
+                    tabButton("SoundCloud", tab: .soundcloud, color: .orange)
+                    Spacer()
+
+                    // SC auth button
+                    if selectedTab == .soundcloud {
+                        Button {
+                            if sc.isAuthenticated {
+                                sc.logout()
+                            } else {
+                                showSCAuth = true
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: sc.isAuthenticated ? "person.fill.checkmark" : "person.badge.plus")
+                                    .font(.system(size: 12))
+                                Text(sc.isAuthenticated ? sc.username.isEmpty ? "Connected" : sc.username : "Log in")
+                                    .font(.system(size: 12, weight: .medium))
+                            }
+                            .foregroundStyle(sc.isAuthenticated ? Color.orange : Color.secondary)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(sc.isAuthenticated ? Color.orange.opacity(0.15) : Color.primary.opacity(0.07), in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .sheet(isPresented: $showSCAuth) {
+                            SoundCloudAuthView()
+                        }
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
+
                 // --- Search bar ---
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass")
@@ -102,17 +144,92 @@ struct SearchView: View {
             Divider().opacity(0.5)
 
             // Content
-            if searchText.isEmpty && searchResults.isEmpty {
-                emptyPrompt
-            } else if let err = searchError {
-                errorView(err)
-            } else if searchResults.isEmpty && !isSearching {
-                noResults
+            if selectedTab == .spotify {
+                if searchText.isEmpty && searchResults.isEmpty {
+                    emptyPrompt
+                } else if let err = searchError {
+                    errorView(err)
+                } else if searchResults.isEmpty && !isSearching {
+                    noResults
+                } else {
+                    resultsList
+                }
             } else {
-                resultsList
+                scContent
             }
         }
         .background(.clear)
+        .onChange(of: selectedTab) {
+            searchText = ""
+            searchResults = []
+            scResults = []
+            searchError = nil
+        }
+    }
+
+    // MARK: - Tab Button
+    private func tabButton(_ title: String, tab: SearchTab, color: Color) -> some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.15)) { selectedTab = tab }
+        } label: {
+            Text(title)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(selectedTab == tab ? color : .secondary)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
+                .background(
+                    selectedTab == tab ? color.opacity(0.12) : Color.clear,
+                    in: Capsule()
+                )
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - SoundCloud Content
+    private var scContent: some View {
+        Group {
+            if searchText.isEmpty && scResults.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "cloud.fill")
+                        .font(.system(size: 48, weight: .light))
+                        .foregroundStyle(.orange.opacity(0.5))
+                    Text("Search SoundCloud")
+                        .font(.system(size: 20, weight: .semibold))
+                    Text(sc.isAuthenticated ?
+                         "Search for tracks — full downloads available" :
+                         "Log in for full tracks, or search for free tracks")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if scResults.isEmpty && !isSearching {
+                noResults
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 2) {
+                        ForEach(scResults) { scTrack in
+                            SCTrackRow(scTrack: scTrack)
+                                .onTapGesture {
+                                    let track = Track(
+                                        id: "sc:\(scTrack.id)",
+                                        title: scTrack.title,
+                                        artist: scTrack.artist,
+                                        album: scTrack.webURL, // store webURL in album
+                                        artworkURL: scTrack.artworkURL,
+                                        duration: scTrack.duration,
+                                        source: .soundCloud
+                                    )
+                                    player.play(track)
+                                }
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                }
+                .scrollIndicators(.hidden)
+            }
+        }
     }
 
     // MARK: - Spotify URL Import
@@ -175,7 +292,7 @@ struct SearchView: View {
     private func scheduleSearch() {
         searchTask?.cancel()
         guard !searchText.trimmingCharacters(in: .whitespaces).isEmpty else {
-            searchResults = []; searchError = nil; return
+            searchResults = []; scResults = []; searchError = nil; return
         }
         searchTask = Task {
             try? await Task.sleep(for: .milliseconds(400))
@@ -189,18 +306,24 @@ struct SearchView: View {
         guard !query.isEmpty else { return }
         isSearching = true
         searchError = nil
-        Task {
-            do {
-                let results = try await SpotifyService.shared.search(query: query, limit: 25)
-                let tracks = results.map { Track(from: $0) }
-                await MainActor.run {
-                    searchResults = tracks
-                    isSearching = false
+
+        if selectedTab == .spotify {
+            Task {
+                do {
+                    let results = try await SpotifyService.shared.search(query: query, limit: 25)
+                    let tracks = results.map { Track(from: $0) }
+                    await MainActor.run { searchResults = tracks; isSearching = false }
+                } catch {
+                    await MainActor.run { searchError = error.localizedDescription; isSearching = false }
                 }
-            } catch {
-                await MainActor.run {
-                    searchError = error.localizedDescription
-                    isSearching = false
+            }
+        } else {
+            Task {
+                do {
+                    let results = try await SoundCloudService.shared.search(query: query, limit: 15)
+                    await MainActor.run { scResults = results; isSearching = false }
+                } catch {
+                    await MainActor.run { searchError = error.localizedDescription; isSearching = false }
                 }
             }
         }
@@ -274,7 +397,7 @@ struct SearchView: View {
     }
 }
 
-// MARK: - Search Result Row
+// MARK: - Search Result Row (Spotify/iTunes)
 
 struct SearchTrackRow: View {
     let track: Track
@@ -307,6 +430,9 @@ struct SearchTrackRow: View {
                     .foregroundStyle(.green)
             }
 
+            // Source badge
+            SourceBadge(source: track.source)
+
             Text(track.durationFormatted)
                 .font(.system(size: 12, design: .monospaced))
                 .foregroundStyle(.tertiary)
@@ -320,6 +446,77 @@ struct SearchTrackRow: View {
         .contentShape(Rectangle())
         .onHover { isHovered = $0 }
         .animation(.easeInOut(duration: 0.12), value: isHovered)
+    }
+}
+
+// MARK: - SoundCloud Track Row
+
+struct SCTrackRow: View {
+    let scTrack: SCTrack
+    @State private var isHovered = false
+    @EnvironmentObject var player: PlayerCore
+
+    var isCurrentTrack: Bool { player.currentTrack?.id == "sc:\(scTrack.id)" }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ArtworkView(url: scTrack.artworkURL, size: 44)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(scTrack.title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(isCurrentTrack ? Color.orange : .primary)
+                    .lineLimit(1)
+                Text(scTrack.artist)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            if isCurrentTrack && player.isPlaying {
+                Image(systemName: "waveform")
+                    .symbolEffect(.variableColor.iterative)
+                    .font(.system(size: 14))
+                    .foregroundStyle(.orange)
+            }
+
+            // SC badge
+            SourceBadge(source: .soundCloud)
+
+            Text(scTrack.durationFormatted)
+                .font(.system(size: 12, design: .monospaced))
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(isHovered ? Color.orange.opacity(0.06) : Color.clear)
+        )
+        .contentShape(Rectangle())
+        .onHover { isHovered = $0 }
+        .animation(.easeInOut(duration: 0.12), value: isHovered)
+    }
+}
+
+// MARK: - Source Badge
+
+struct SourceBadge: View {
+    let source: TrackSource
+
+    var body: some View {
+        HStack(spacing: 3) {
+            Image(systemName: source.icon)
+                .font(.system(size: 9, weight: .bold))
+            Text(source.label)
+                .font(.system(size: 10, weight: .semibold))
+        }
+        .foregroundStyle(source.color)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
+        .background(source.color.opacity(0.12), in: Capsule())
     }
 }
 

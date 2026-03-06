@@ -231,22 +231,50 @@ class PlayerCore: ObservableObject {
 
         do {
             let audioURL: URL
-            let cached = await DownloadService.shared.isCached(richTrack.id)
-            if cached {
-                downloadStatus = "Loading from cache…"
-                audioURL = await DownloadService.shared.cacheFile(for: richTrack.id)
-            } else {
-                audioURL = try await DownloadService.shared.downloadTrack(
-                    trackID: richTrack.id,
+
+            if richTrack.isSoundCloud, let scID = richTrack.soundCloudID {
+                // SoundCloud track — use yt-dlp
+                let scTrack = SCTrack(
+                    id: scID,
                     title: richTrack.title,
                     artist: richTrack.artist,
-                    onStatus: { [weak self] status in
-                        Task { @MainActor [weak self] in self?.downloadStatus = status }
-                    },
-                    onProgress: { [weak self] p in
-                        Task { @MainActor [weak self] in self?.downloadProgress = p }
-                    }
+                    duration: richTrack.duration,
+                    artworkURL: richTrack.artworkURL,
+                    webURL: richTrack.album // we store webURL in album field for SC tracks
                 )
+                if SoundCloudService.shared.isCached(scID) {
+                    downloadStatus = "Loading from cache…"
+                    audioURL = SoundCloudService.shared.cacheFile(for: scID)
+                } else {
+                    audioURL = try await SoundCloudService.shared.downloadTrack(
+                        track: scTrack,
+                        onStatus: { [weak self] status in
+                            Task { @MainActor [weak self] in self?.downloadStatus = status }
+                        },
+                        onProgress: { [weak self] p in
+                            Task { @MainActor [weak self] in self?.downloadProgress = p }
+                        }
+                    )
+                }
+            } else {
+                // Spotify/iTunes track — use Tidal chain
+                let cached = await DownloadService.shared.isCached(richTrack.id)
+                if cached {
+                    downloadStatus = "Loading from cache…"
+                    audioURL = await DownloadService.shared.cacheFile(for: richTrack.id)
+                } else {
+                    audioURL = try await DownloadService.shared.downloadTrack(
+                        trackID: richTrack.id,
+                        title: richTrack.title,
+                        artist: richTrack.artist,
+                        onStatus: { [weak self] status in
+                            Task { @MainActor [weak self] in self?.downloadStatus = status }
+                        },
+                        onProgress: { [weak self] p in
+                            Task { @MainActor [weak self] in self?.downloadProgress = p }
+                        }
+                    )
+                }
             }
 
             // Load audio file into AVAudioEngine
