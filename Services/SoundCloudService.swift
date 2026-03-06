@@ -167,9 +167,9 @@ class SoundCloudService: ObservableObject {
             "--newline"
         ]
 
-        // Use cookie file if available (most reliable method)
-        if FileManager.default.fileExists(atPath: cookieFile.path) {
-            args += ["--cookies", cookieFile.path]
+        // Use OAuth token if available
+        if !authToken.isEmpty {
+            args += ["--add-header", "Authorization: OAuth \(authToken)"]
         }
 
         args.append(track.webURL)
