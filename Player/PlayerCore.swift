@@ -37,7 +37,8 @@ class PlayerCore: ObservableObject {
     private var trackDuration: TimeInterval = 0
     private var playbackStartTime: Date?
     private var playbackOffset: TimeInterval = 0
-    private var shuffledIndices: [Int] = []
+    private var shuffleHistory: [String] = []   // track IDs already played in shuffle
+    private var isSeeking: Bool = false          // prevents seek from triggering handleTrackEnd
 
     // Reference to library
     @ObservedObject var library = LibraryManager.shared
@@ -105,6 +106,7 @@ class PlayerCore: ObservableObject {
     /// setting the full queue first so next() always has tracks to pick from
     func playCollection(_ tracks: [Track], startIndex: Int) {
         queue = tracks
+        shuffleHistory.removeAll()  // Reset shuffle history for new collection
         let idx = max(0, min(startIndex, tracks.count - 1))
         Task { await loadAndPlay(tracks[idx]) }
     }
@@ -112,18 +114,23 @@ class PlayerCore: ObservableObject {
     func next() {
         guard !queue.isEmpty else { return }
         if isShuffle {
-            // Pick random track that is not the current one
-            var idx = Int.random(in: 0..<queue.count)
-            if queue.count > 1, let current = currentTrack {
-                while queue[idx].id == current.id {
-                    idx = Int.random(in: 0..<queue.count)
+            // Get tracks not yet played
+            let unplayed = queue.filter { !shuffleHistory.contains($0.id) }
+            if unplayed.isEmpty {
+                // All tracks played — reset history and start over
+                shuffleHistory.removeAll()
+                if let first = queue.randomElement() {
+                    Task { await loadAndPlay(first) }
+                }
+            } else {
+                // Pick random unplayed track
+                if let next = unplayed.randomElement() {
+                    Task { await loadAndPlay(next) }
                 }
             }
-            Task { await loadAndPlay(queue[idx]) }
         } else {
             guard let current = currentTrack,
                   let idx = queue.firstIndex(of: current) else {
-                // Queue set but no current track — play first
                 if !queue.isEmpty { Task { await loadAndPlay(queue[0]) } }
                 return
             }
@@ -157,7 +164,10 @@ class PlayerCore: ObservableObject {
         let framesToPlay = AVAudioFrameCount(audioFile.length - framePosition)
         guard framesToPlay > 0 else { return }
 
+        // Set flag to prevent stop() from triggering handleTrackEnd
+        isSeeking = true
         eq.playerNode.stop()
+
         eq.playerNode.scheduleSegment(
             audioFile,
             startingFrame: framePosition,
@@ -165,10 +175,16 @@ class PlayerCore: ObservableObject {
             at: nil
         ) { [weak self] in
             Task { @MainActor [weak self] in
-                self?.handleTrackEnd()
+                guard let self, !self.isSeeking else { return }
+                self.handleTrackEnd()
             }
         }
+
         if isPlaying { eq.playerNode.play() }
+        // Reset flag after scheduling is done
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            self?.isSeeking = false
+        }
     }
 
     func toggleShuffle() { isShuffle.toggle() }
@@ -207,6 +223,11 @@ class PlayerCore: ObservableObject {
 
         currentTrack = richTrack
         library.addToRecent(richTrack)
+
+        // Track shuffle history to avoid repeats
+        if isShuffle && !shuffleHistory.contains(richTrack.id) {
+            shuffleHistory.append(richTrack.id)
+        }
 
         do {
             let audioURL: URL
