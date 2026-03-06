@@ -26,14 +26,13 @@ struct SoundCloudAuthView: View {
                 if isCapturing {
                     HStack(spacing: 6) {
                         ProgressView().scaleEffect(0.7)
-                        Text("Capturing token…")
+                        Text("Capturing session…")
                             .font(.system(size: 12))
                             .foregroundStyle(.orange)
                     }
+                    .transition(.opacity)
                 }
-                Button {
-                    dismiss()
-                } label: {
+                Button { dismiss() } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 20))
                         .foregroundStyle(.secondary)
@@ -43,36 +42,74 @@ struct SoundCloudAuthView: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 14)
             .background(.ultraThinMaterial)
+            .animation(.easeInOut, value: isCapturing)
 
             Divider()
 
-            if let token = capturedToken {
-                // Success state
-                VStack(spacing: 20) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 64))
-                        .foregroundStyle(.green)
-                    Text("Connected!")
-                        .font(.system(size: 24, weight: .bold))
-                    Text("SoundCloud account connected successfully.\nYou can now download full tracks.")
-                        .font(.system(size: 14))
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                    Button("Done") {
-                        sc.saveToken(token)
+            if capturedToken != nil {
+                // ✅ Success state
+                VStack(spacing: 24) {
+                    Spacer()
+
+                    ZStack {
+                        Circle()
+                            .fill(Color.orange.opacity(0.15))
+                            .frame(width: 120, height: 120)
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 72))
+                            .foregroundStyle(.orange)
+                    }
+                    .transition(.scale.combined(with: .opacity))
+
+                    VStack(spacing: 10) {
+                        Text("🎉 Connected!")
+                            .font(.system(size: 28, weight: .bold))
+
+                        if !sc.username.isEmpty {
+                            Text("Logged in as \(sc.username)")
+                                .font(.system(size: 15, weight: .medium))
+                                .foregroundStyle(.orange)
+                        }
+
+                        Text("Your SoundCloud session has been captured.\nYou can now search and download full tracks.")
+                            .font(.system(size: 14))
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+
+                        // Show cookie file status
+                        HStack(spacing: 6) {
+                            Image(systemName: "checkmark.shield.fill")
+                                .foregroundStyle(.green)
+                                .font(.system(size: 13))
+                            Text("Session saved securely")
+                                .font(.system(size: 13))
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Color.green.opacity(0.1), in: Capsule())
+                    }
+
+                    Button("Done — Start Listening") {
                         dismiss()
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(.orange)
                     .controlSize(.large)
+                    .keyboardShortcut(.defaultAction)
+
+                    Spacer()
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .transition(.opacity)
             } else {
                 // WebView
                 SCWebView(onTokenCaptured: { token in
-                    capturedToken = token
+                    withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                        capturedToken = token
+                    }
                 }, onCapturing: { capturing in
-                    isCapturing = capturing
+                    withAnimation { isCapturing = capturing }
                 })
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
@@ -81,7 +118,7 @@ struct SoundCloudAuthView: View {
                     Image(systemName: "info.circle")
                         .foregroundStyle(.orange)
                         .font(.system(size: 13))
-                    Text("Log in with your SoundCloud account. SuckFy will automatically capture your session token.")
+                    Text("Log in with your SoundCloud account — SuckFy will automatically capture your session.")
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                 }
@@ -91,6 +128,7 @@ struct SoundCloudAuthView: View {
             }
         }
         .frame(width: 500, height: 640)
+        .animation(.easeInOut(duration: 0.4), value: capturedToken != nil)
     }
 }
 
@@ -138,111 +176,56 @@ struct SCWebView: NSViewRepresentable {
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             guard !tokenCaptured else { return }
-
             let url = webView.url?.absoluteString ?? ""
 
-            // After login redirect — try to extract token from cookies and JS
-            if url.contains("soundcloud.com") && !url.contains("login") {
+            // After successful login — user lands on soundcloud.com (not /login)
+            if url.contains("soundcloud.com") && !url.contains("/login") && !url.contains("/signin") {
                 onCapturing(true)
-                extractToken(from: webView)
-            }
-        }
-
-        private func extractToken(from webView: WKWebView) {
-            // Method 1: Extract from cookies
-            webView.configuration.websiteDataStore.httpCookieStore.getAllCookies { cookies in
-                for cookie in cookies {
-                    if cookie.name == "oauth_token" || cookie.name == "sc_anonymous_id" {
-                        if cookie.name == "oauth_token" {
-                            DispatchQueue.main.async {
-                                self.captureToken(cookie.value)
-                            }
-                            return
-                        }
-                    }
-                }
-
-                // Method 2: Extract from JS localStorage / API call
-                webView.evaluateJavaScript("""
-                    (function() {
-                        // Try to get from SC app state
-                        try {
-                            var keys = Object.keys(localStorage);
-                            for (var k of keys) {
-                                var v = localStorage.getItem(k);
-                                if (v && v.includes('oauth_token')) {
-                                    var match = v.match(/"oauth_token":"([^"]+)"/);
-                                    if (match) return match[1];
-                                }
-                            }
-                        } catch(e) {}
-
-                        // Try cookies string
-                        var cookies = document.cookie;
-                        var match = cookies.match(/oauth_token=([^;]+)/);
-                        if (match) return match[1];
-
-                        return null;
-                    })()
-                """) { result, error in
-                    if let token = result as? String, !token.isEmpty {
-                        DispatchQueue.main.async {
-                            self.captureToken(token)
-                        }
-                    } else {
-                        // Method 3: Intercept API calls via JS injection
-                        self.injectTokenInterceptor(webView)
-                    }
+                // Wait a bit for cookies to be set
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+                    self?.extractCookies(from: webView)
                 }
             }
         }
 
-        private func injectTokenInterceptor(_ webView: WKWebView) {
-            // Intercept XHR/fetch calls to api-v2.soundcloud.com to grab OAuth token
-            webView.evaluateJavaScript("""
-                (function() {
-                    var origOpen = XMLHttpRequest.prototype.open;
-                    XMLHttpRequest.prototype.open = function(method, url) {
-                        if (url.includes('api-v2.soundcloud.com') || url.includes('api.soundcloud.com')) {
-                            this.addEventListener('readystatechange', function() {
-                                if (this.readyState === 4) {
-                                    var auth = this.getResponseHeader ? this.getResponseHeader('Authorization') : null;
-                                    if (auth && auth.includes('OAuth')) {
-                                        window._scOAuthToken = auth.replace('OAuth ', '').trim();
-                                    }
-                                }
-                            });
-                        }
-                        return origOpen.apply(this, arguments);
-                    };
-                    // Check if already available
-                    return window._scOAuthToken || null;
-                })()
-            """) { _, _ in }
-
-            // Poll for token every 2 seconds
-            pollForToken(webView, attempts: 0)
-        }
-
-        private func pollForToken(_ webView: WKWebView, attempts: Int) {
-            guard attempts < 30, !tokenCaptured else { return }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+        private func extractCookies(from webView: WKWebView) {
+            webView.configuration.websiteDataStore.httpCookieStore.getAllCookies { [weak self] cookies in
                 guard let self else { return }
-                webView.evaluateJavaScript("window._scOAuthToken || null") { result, _ in
-                    if let token = result as? String, !token.isEmpty {
-                        self.captureToken(token)
-                    } else {
-                        self.pollForToken(webView, attempts: attempts + 1)
+
+                let scCookies = cookies.filter { $0.domain.contains("soundcloud") }
+                print("[SuckFy SC] Got \(scCookies.count) SC cookies")
+                for c in scCookies { print("  \(c.name) = \(c.value.prefix(20))...") }
+
+                // Check if we have session cookies (user is logged in)
+                let hasSession = scCookies.contains { 
+                    ["sc_anonymous_id", "sc_session", "connect_session", "soundcloud_session_hint"].contains($0.name) 
+                }
+
+                guard hasSession && !scCookies.isEmpty else {
+                    // Not logged in yet — keep waiting
+                    self.onCapturing(false)
+                    return
+                }
+
+                // Extract username from page title or JS
+                webView.evaluateJavaScript("""
+                    document.querySelector('.header__userNavItem .header__userUri')?.textContent 
+                    || document.title 
+                    || 'SoundCloud User'
+                """) { result, _ in
+                    let name = (result as? String) ?? "SoundCloud User"
+                    DispatchQueue.main.async {
+                        self.tokenCaptured = true
+                        self.onCapturing(false)
+                        // Pass all cookies to service
+                        Task { @MainActor in
+                            SoundCloudService.shared.saveCookies(scCookies)
+                            SoundCloudService.shared.username = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                        }
+                        self.onTokenCaptured("connected")
                     }
                 }
             }
-        }
-
-        private func captureToken(_ token: String) {
-            guard !tokenCaptured, !token.isEmpty else { return }
-            tokenCaptured = true
-            onCapturing(false)
-            onTokenCaptured(token)
         }
     }
 }

@@ -29,12 +29,15 @@ class SoundCloudService: ObservableObject {
 
     // MARK: - Auth Token Management
 
+    // Cookie string from browser session
+    var cookieString: String { authToken }
+
     func saveToken(_ token: String, username: String = "") {
         authToken = token
         isAuthenticated = !token.isEmpty
         self.username = username
 
-        // Save to Keychain
+        // Save cookies to Keychain
         let data = token.data(using: .utf8)!
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
@@ -43,9 +46,37 @@ class SoundCloudService: ObservableObject {
         ]
         SecItemDelete(query as CFDictionary)
         SecItemAdd(query as CFDictionary, nil)
-
-        // Save username to UserDefaults
         UserDefaults.standard.set(username, forKey: "suckfy.soundcloud.username")
+    }
+
+    // Save cookies from WKWebView as Netscape cookie file for yt-dlp
+    func saveCookies(_ cookies: [HTTPCookie]) {
+        var lines = ["# Netscape HTTP Cookie File"]
+        for c in cookies {
+            guard c.domain.contains("soundcloud") else { continue }
+            let domain = c.domain.hasPrefix(".") ? c.domain : ".\(c.domain)"
+            let includeSubdomains = "TRUE"
+            let path = c.path
+            let secure = c.isSecure ? "TRUE" : "FALSE"
+            let expiry = Int(c.expiresDate?.timeIntervalSince1970 ?? 9999999999)
+            let name = c.name
+            let value = c.value
+            lines.append("\(domain)\t\(includeSubdomains)\t\(path)\t\(secure)\t\(expiry)\t\(name)\t\(value)")
+        }
+        let content = lines.joined(separator: "\n")
+        try? content.write(to: cookieFile, atomically: true, encoding: .utf8)
+
+        // Also save compact cookie string for display
+        let compact = cookies.filter { $0.domain.contains("soundcloud") }
+            .map { "\($0.name)=\($0.value)" }
+            .joined(separator: "; ")
+        saveToken(compact, username: username)
+        isAuthenticated = !cookies.isEmpty
+    }
+
+    var cookieFile: URL {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Dotify/sc_cookies.txt")
     }
 
     func loadToken() {
@@ -70,6 +101,7 @@ class SoundCloudService: ObservableObject {
         authToken = ""
         isAuthenticated = false
         username = ""
+        try? FileManager.default.removeItem(at: cookieFile)
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrAccount as String: keychainKey
@@ -135,10 +167,9 @@ class SoundCloudService: ObservableObject {
             "--newline"
         ]
 
-        // Add auth token if available
-        if !authToken.isEmpty {
-            args += ["--add-header", "Authorization: OAuth \(authToken)"]
-            args += ["--username", "oauth", "--password", ""]
+        // Use cookie file if available (most reliable method)
+        if FileManager.default.fileExists(atPath: cookieFile.path) {
+            args += ["--cookies", cookieFile.path]
         }
 
         args.append(track.webURL)
