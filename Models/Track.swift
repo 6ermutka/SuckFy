@@ -136,6 +136,10 @@ class LibraryManager: ObservableObject {
 
     private let likedKey = "dotify.likedSongs"
     private let recentKey = "dotify.recentlyPlayed"
+    private let playlistsKey = "dotify.playlists"
+    
+    // Use specific suite to ensure data persists across app launches
+    private let defaults = UserDefaults(suiteName: "com.suckfy.musicplayer") ?? UserDefaults.standard
 
     private init() { load() }
 
@@ -159,25 +163,53 @@ class LibraryManager: ObservableObject {
 
     func addPlaylist(_ playlist: Playlist) {
         playlists.append(playlist)
+        save()
+    }
+    
+    func removePlaylist(_ playlist: Playlist) {
+        playlists.removeAll { $0.id == playlist.id }
+        save()
+    }
+    
+    func addTrackToPlaylist(_ track: Track, playlistID: String) {
+        guard let index = playlists.firstIndex(where: { $0.id == playlistID }) else { return }
+        if !playlists[index].tracks.contains(where: { $0.id == track.id }) {
+            playlists[index].tracks.append(track)
+            save()
+        }
+    }
+    
+    func removeTrackFromPlaylist(_ track: Track, playlistID: String) {
+        guard let index = playlists.firstIndex(where: { $0.id == playlistID }) else { return }
+        playlists[index].tracks.removeAll { $0.id == track.id }
+        save()
     }
 
     private func save() {
         if let data = try? JSONEncoder().encode(likedSongs.map(EncodableTrack.init)) {
-            UserDefaults.standard.set(data, forKey: likedKey)
+            defaults.set(data, forKey: likedKey)
         }
         if let data = try? JSONEncoder().encode(recentlyPlayed.map(EncodableTrack.init)) {
-            UserDefaults.standard.set(data, forKey: recentKey)
+            defaults.set(data, forKey: recentKey)
         }
+        if let data = try? JSONEncoder().encode(playlists.map(EncodablePlaylist.init)) {
+            defaults.set(data, forKey: playlistsKey)
+        }
+        defaults.synchronize()
     }
 
     private func load() {
-        if let data = UserDefaults.standard.data(forKey: likedKey),
+        if let data = defaults.data(forKey: likedKey),
            let tracks = try? JSONDecoder().decode([EncodableTrack].self, from: data) {
             likedSongs = tracks.map(\.track)
         }
-        if let data = UserDefaults.standard.data(forKey: recentKey),
+        if let data = defaults.data(forKey: recentKey),
            let tracks = try? JSONDecoder().decode([EncodableTrack].self, from: data) {
             recentlyPlayed = tracks.map(\.track)
+        }
+        if let data = defaults.data(forKey: playlistsKey),
+           let encodedPlaylists = try? JSONDecoder().decode([EncodablePlaylist].self, from: data) {
+            playlists = encodedPlaylists.map(\.playlist)
         }
     }
 }
@@ -187,15 +219,43 @@ private struct EncodableTrack: Codable {
     let id, title, artist, album: String
     let artworkURLString: String?
     let duration: TimeInterval
+    let source: TrackSource
 
     init(_ track: Track) {
         id = track.id; title = track.title; artist = track.artist
         album = track.album; duration = track.duration
         artworkURLString = track.artworkURL?.absoluteString
+        source = track.source
     }
 
     var track: Track {
         Track(id: id, title: title, artist: artist, album: album,
-              artworkURL: artworkURLString.flatMap(URL.init), duration: duration)
+              artworkURL: artworkURLString.flatMap(URL.init), duration: duration,
+              source: source)
+    }
+}
+
+// Codable wrapper for Playlist persistence
+private struct EncodablePlaylist: Codable {
+    let id, name, description: String
+    let artworkURLString: String?
+    let tracks: [EncodableTrack]
+    
+    init(_ playlist: Playlist) {
+        id = playlist.id
+        name = playlist.name
+        description = playlist.description
+        artworkURLString = playlist.artworkURL?.absoluteString
+        tracks = playlist.tracks.map(EncodableTrack.init)
+    }
+    
+    var playlist: Playlist {
+        Playlist(
+            id: id,
+            name: name,
+            description: description,
+            artworkURL: artworkURLString.flatMap(URL.init),
+            tracks: tracks.map(\.track)
+        )
     }
 }

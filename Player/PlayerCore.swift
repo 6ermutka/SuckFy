@@ -39,6 +39,7 @@ class PlayerCore: ObservableObject {
     private var playbackOffset: TimeInterval = 0
     private var shuffleHistory: [String] = []   // track IDs already played in shuffle
     private var isSeeking: Bool = false          // prevents seek from triggering handleTrackEnd
+    private var isManualNext: Bool = false       // prevents handleTrackEnd loop on manual next
 
     // Reference to library
     @ObservedObject var library = LibraryManager.shared
@@ -97,6 +98,9 @@ class PlayerCore: ObservableObject {
     }
 
     func play(_ track: Track, in playlist: Playlist? = nil) {
+        // Set flag to prevent handleTrackEnd from old track interfering
+        isManualNext = true
+        
         if let playlist { currentPlaylist = playlist; queue = playlist.tracks }
         if !queue.contains(track) { queue.append(track) }
         Task { await loadAndPlay(track) }
@@ -113,6 +117,9 @@ class PlayerCore: ObservableObject {
 
     func next() {
         guard !queue.isEmpty else { return }
+        
+        // Set flag BEFORE any operations to prevent handleTrackEnd loop
+        isManualNext = true
         if isShuffle {
             // Get tracks not yet played
             let unplayed = queue.filter { !shuffleHistory.contains($0.id) }
@@ -319,7 +326,14 @@ class PlayerCore: ObservableObject {
     // MARK: - Track End
 
     private func handleTrackEnd() {
+        // Don't handle track end if we're seeking or manually calling next
+        guard !isSeeking else { return }
+        guard !isManualNext else {
+            isManualNext = false // Reset flag
+            return
+        }
         guard isPlaying || currentTime >= trackDuration - 0.5 else { return }
+        
         switch repeatMode {
         case .one:
             seek(to: 0)

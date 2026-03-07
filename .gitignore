@@ -7,3 +7,14 @@ xcuserdata/
 *.xcuserstate
 DerivedData/
 *.resolved
+build/
+*.xcodeproj
+
+# App bundle and icons
+SuckFy.app/
+SuckFy.iconset/
+*.icns
+suckfy.png
+
+# Info.plist is generated
+Info.plist

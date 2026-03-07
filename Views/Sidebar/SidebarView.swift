@@ -20,15 +20,14 @@ enum SidebarItem: String, CaseIterable, Identifiable {
 
 struct SidebarView: View {
     @Binding var selectedItem: SidebarItem
+    @Binding var selectedPlaylist: Playlist?
     @EnvironmentObject var player: PlayerCore
     @ObservedObject private var library = LibraryManager.shared
     @AppStorage("colorScheme") private var colorSchemePref: String = "dark"
 
-    // Spotify URL import
-    @State private var showImportSheet = false
-    @State private var importURL = ""
-    @State private var importError: String?
-    @State private var isImporting = false
+    // Create playlist
+    @State private var showCreatePlaylist = false
+    @State private var newPlaylistName = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -50,20 +49,25 @@ struct SidebarView: View {
             VStack(alignment: .leading, spacing: 1) {
                 ForEach(SidebarItem.allCases) { item in
                     SidebarNavItem(item: item, isSelected: selectedItem == item)
-                        .onTapGesture { withAnimation(.easeInOut(duration: 0.15)) { selectedItem = item } }
+                        .onTapGesture {
+                            withAnimation(.easeInOut(duration: 0.15)) {
+                                selectedItem = item
+                                selectedPlaylist = nil
+                            }
+                        }
                 }
             }
             .padding(.horizontal, 8)
 
-            // Import playlist button
+            // Create playlist button
             Button {
-                showImportSheet = true
+                showCreatePlaylist = true
             } label: {
                 HStack(spacing: 10) {
                     Image(systemName: "plus.circle.fill")
                         .font(.system(size: 16))
                         .foregroundStyle(.green)
-                    Text("Import Playlist")
+                    Text("Create Playlist")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(.secondary)
                     Spacer()
@@ -96,7 +100,10 @@ struct SidebarView: View {
                             artworkURL: nil,
                             iconName: "heart.fill",
                             iconColor: .purple
-                        ) { selectedItem = .likedSongs }
+                        ) {
+                            selectedItem = .likedSongs
+                            selectedPlaylist = nil
+                        }
                     }
                     // User playlists
                     ForEach(library.playlists) { playlist in
@@ -106,7 +113,10 @@ struct SidebarView: View {
                             artworkURL: playlist.artworkURL,
                             iconName: "music.note.list",
                             iconColor: .blue
-                        ) {}
+                        ) {
+                            selectedPlaylist = playlist
+                            selectedItem = .home // Reset sidebar selection
+                        }
                     }
                 }
                 .padding(.horizontal, 8)
@@ -136,9 +146,8 @@ struct SidebarView: View {
         }
         .frame(width: 220)
         .background(.ultraThinMaterial)
-        .sheet(isPresented: $showImportSheet) {
-            ImportPlaylistSheet(isPresented: $showImportSheet)
-                .environmentObject(player)
+        .sheet(isPresented: $showCreatePlaylist) {
+            CreatePlaylistSheet(isPresented: $showCreatePlaylist)
         }
     }
 }
@@ -227,33 +236,47 @@ struct SidebarPlaylistRow: View {
 }
 
 // MARK: - Import Playlist Sheet
-struct ImportPlaylistSheet: View {
+struct CreatePlaylistSheet: View {
     @Binding var isPresented: Bool
-    @EnvironmentObject var player: PlayerCore
     @ObservedObject private var library = LibraryManager.shared
-    @State private var urlText = ""
-    @State private var isLoading = false
-    @State private var errorMsg: String?
+    @State private var playlistName = ""
+    @State private var playlistDescription = ""
 
     var body: some View {
         VStack(spacing: 20) {
-            Text("Import Spotify Playlist")
-                .font(.system(size: 18, weight: .bold))
+            // Header with icon
+            HStack(spacing: 10) {
+                Image(systemName: "music.note.list")
+                    .font(.system(size: 20))
+                    .foregroundStyle(.green)
+                Text("Create Playlist")
+                    .font(.system(size: 18, weight: .bold))
+            }
 
-            Text("Paste a Spotify playlist, album or track URL")
-                .font(.system(size: 13))
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+            VStack(spacing: 8) {
+                Text("Give your playlist a name")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+            }
 
-            TextField("https://open.spotify.com/playlist/...", text: $urlText)
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 380)
-
-            if let err = errorMsg {
-                Text(err)
-                    .font(.system(size: 12))
-                    .foregroundStyle(.red)
-                    .multilineTextAlignment(.center)
+            VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Name")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                    TextField("My Playlist", text: $playlistName)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 360)
+                }
+                
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Description (optional)")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                    TextField("Add a description...", text: $playlistDescription)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 360)
+                }
             }
 
             HStack(spacing: 12) {
@@ -261,62 +284,32 @@ struct ImportPlaylistSheet: View {
                     .buttonStyle(.bordered)
                     .keyboardShortcut(.cancelAction)
 
-                Button("Import") { importURL() }
+                Button("Create") { createPlaylist() }
                     .buttonStyle(.borderedProminent)
+                    .tint(.green)
                     .keyboardShortcut(.defaultAction)
-                    .disabled(urlText.trimmingCharacters(in: .whitespaces).isEmpty || isLoading)
-            }
-
-            if isLoading {
-                ProgressView("Importing…")
-                    .progressViewStyle(.linear)
-                    .frame(width: 380)
+                    .disabled(playlistName.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         }
-        .padding(28)
+        .padding(32)
         .frame(width: 440)
     }
 
-    private func importURL() {
-        let raw = urlText.trimmingCharacters(in: .whitespaces)
-        isLoading = true; errorMsg = nil
-        Task {
-            do {
-                // Detect type
-                if raw.contains("/playlist/") {
-                    let id = extractID(from: raw)
-                    guard !id.isEmpty else { throw ImportError.invalidURL }
-                    let sp = try await SpotifyService.shared.playlist(id: id)
-                    let tracks = sp.tracks.items.compactMap(\.track).map { Track(from: $0) }
-                    let playlist = Playlist(id: sp.id, name: sp.name,
-                                           description: sp.description ?? "",
-                                           artworkURL: sp.images.first.flatMap { URL(string: $0.url) },
-                                           tracks: tracks)
-                    await MainActor.run { library.addPlaylist(playlist); isPresented = false }
-                } else if raw.contains("/track/") {
-                    let id = extractID(from: raw)
-                    guard !id.isEmpty else { throw ImportError.invalidURL }
-                    let sp = try await SpotifyService.shared.track(id: id)
-                    let track = Track(from: sp)
-                    await MainActor.run { player.play(track); isPresented = false }
-                } else {
-                    throw ImportError.invalidURL
-                }
-            } catch {
-                await MainActor.run { errorMsg = error.localizedDescription; isLoading = false }
-            }
-        }
+    private func createPlaylist() {
+        let name = playlistName.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty else { return }
+        
+        let playlist = Playlist(
+            id: UUID().uuidString,
+            name: name,
+            description: playlistDescription.trimmingCharacters(in: .whitespaces),
+            artworkURL: nil,
+            tracks: []
+        )
+        
+        library.addPlaylist(playlist)
+        isPresented = false
     }
-
-    private func extractID(from url: String) -> String {
-        guard let u = URL(string: url) else { return "" }
-        return u.lastPathComponent.components(separatedBy: "?").first ?? ""
-    }
-}
-
-enum ImportError: LocalizedError {
-    case invalidURL
-    var errorDescription: String? { "Invalid Spotify URL. Please paste a valid track or playlist link." }
 }
 
 // MARK: - Color hex helper

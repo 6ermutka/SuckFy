@@ -32,12 +32,19 @@ class SoundCloudService: ObservableObject {
     // Cookie string from browser session
     var cookieString: String { authToken }
 
-    func saveToken(_ token: String, username: String = "") {
+    func saveToken(_ token: String, username: String = "") async {
         authToken = token
         isAuthenticated = !token.isEmpty
-        self.username = username
+        
+        // Fetch username from API if not provided
+        var finalUsername = username
+        if !token.isEmpty && username.isEmpty {
+            finalUsername = await fetchUsername(token: token) ?? "SoundCloud User"
+        }
+        
+        self.username = finalUsername
 
-        // Save cookies to Keychain
+        // Save token to Keychain
         let data = token.data(using: .utf8)!
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
@@ -46,11 +53,38 @@ class SoundCloudService: ObservableObject {
         ]
         SecItemDelete(query as CFDictionary)
         SecItemAdd(query as CFDictionary, nil)
-        UserDefaults.standard.set(username, forKey: "suckfy.soundcloud.username")
+        UserDefaults.standard.set(finalUsername, forKey: "suckfy.soundcloud.username")
+        
+        print("[SuckFy] SoundCloud token saved: \(token.prefix(20))... for user: \(finalUsername)")
+    }
+    
+    // Fetch username from SoundCloud API
+    private func fetchUsername(token: String) async -> String? {
+        do {
+            let url = URL(string: "https://api-v2.soundcloud.com/me")!
+            var request = URLRequest(url: url)
+            request.setValue("OAuth \(token)", forHTTPHeaderField: "Authorization")
+            request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36", forHTTPHeaderField: "User-Agent")
+            
+            let (data, response) = try await URLSession.shared.data(for: request)
+            
+            guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+                print("[SuckFy] Failed to fetch SoundCloud user info")
+                return nil
+            }
+            
+            if let json = try? JSONDecoder().decode(SCAPIUser.self, from: data) {
+                print("[SuckFy] Fetched SoundCloud username: \(json.username)")
+                return json.username
+            }
+        } catch {
+            print("[SuckFy] Error fetching SoundCloud username: \(error)")
+        }
+        return nil
     }
 
     // Save cookies from WKWebView as Netscape cookie file for yt-dlp
-    func saveCookies(_ cookies: [HTTPCookie]) {
+    func saveCookies(_ cookies: [HTTPCookie]) async {
         var lines = ["# Netscape HTTP Cookie File"]
         for c in cookies {
             guard c.domain.contains("soundcloud") else { continue }
@@ -70,7 +104,7 @@ class SoundCloudService: ObservableObject {
         let compact = cookies.filter { $0.domain.contains("soundcloud") }
             .map { "\($0.name)=\($0.value)" }
             .joined(separator: "; ")
-        saveToken(compact, username: username)
+        await saveToken(compact, username: username)
         isAuthenticated = !cookies.isEmpty
     }
 
@@ -110,31 +144,109 @@ class SoundCloudService: ObservableObject {
         UserDefaults.standard.removeObject(forKey: "suckfy.soundcloud.username")
     }
 
-    // MARK: - Search via yt-dlp
+    // MARK: - Get track by URL via SoundCloud API
+    
+    func getTrackByURL(_ url: String) async throws -> SCTrack {
+        // Extract track from URL via SoundCloud API
+        let cleanURL = url.trimmingCharacters(in: .whitespaces)
+        print("[SuckFy] Getting SoundCloud track from URL: \(cleanURL)")
+        
+        // Use resolve endpoint to get track info
+        var components = URLComponents(string: "https://api-v2.soundcloud.com/resolve")!
+        components.queryItems = [
+            URLQueryItem(name: "url", value: cleanURL),
+            URLQueryItem(name: "client_id", value: "iZIs9mchVcX5lhVRyQGGAYlNPVldzAoX") // Public client_id
+        ]
+        
+        var request = URLRequest(url: components.url!)
+        request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36", forHTTPHeaderField: "User-Agent")
+        
+        // Add OAuth token if available
+        if !authToken.isEmpty {
+            request.setValue("OAuth \(authToken)", forHTTPHeaderField: "Authorization")
+        }
+        
+        let session = URLSession.shared
+        let (data, response) = try await session.data(for: request)
+        
+        guard let httpResp = response as? HTTPURLResponse else {
+            throw SCError.downloadFailed("Invalid response from SoundCloud API")
+        }
+        
+        print("[SuckFy] SoundCloud API status: \(httpResp.statusCode)")
+        
+        guard httpResp.statusCode == 200 else {
+            let body = String(data: data, encoding: .utf8) ?? ""
+            print("[SuckFy] SoundCloud API error: \(body)")
+            throw SCError.downloadFailed("SoundCloud API returned \(httpResp.statusCode)")
+        }
+        
+        let json = try JSONDecoder().decode(SCAPITrack.self, from: data)
+        
+        // Process artwork URL - replace quality suffix for higher res
+        let artworkURL: URL? = {
+            guard let urlString = json.artwork_url else { return nil }
+            let highRes = urlString.replacingOccurrences(of: "-large", with: "-t500x500")
+            return URL(string: highRes)
+        }()
+        
+        return SCTrack(
+            id: String(json.id),
+            title: json.title,
+            artist: json.user.username,
+            duration: TimeInterval(json.duration) / 1000.0,
+            artworkURL: artworkURL,
+            webURL: json.permalink_url
+        )
+    }
+
+    // MARK: - Search via SoundCloud API
 
     func search(query: String, limit: Int = 15) async throws -> [SCTrack] {
-        let args = [
-            ytdlpPath,
-            "--no-playlist",
-            "--flat-playlist",
-            "--print", "%(id)s|%(title)s|%(uploader)s|%(duration)s|%(thumbnail)s|%(webpage_url)s",
-            "--no-warnings",
-            "scsearch\(limit):\(query)"
+        // Use SoundCloud API for search to get proper artwork URLs
+        var components = URLComponents(string: "https://api-v2.soundcloud.com/search/tracks")!
+        components.queryItems = [
+            URLQueryItem(name: "q", value: query),
+            URLQueryItem(name: "limit", value: String(limit)),
+            URLQueryItem(name: "client_id", value: "iZIs9mchVcX5lhVRyQGGAYlNPVldzAoX")
         ]
-
-        let output = try await runProcess(args)
-        let lines = output.split(separator: "\n", omittingEmptySubsequences: true)
-
-        return lines.compactMap { line -> SCTrack? in
-            let parts = String(line).components(separatedBy: "|")
-            guard parts.count >= 6 else { return nil }
+        
+        var request = URLRequest(url: components.url!)
+        request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36", forHTTPHeaderField: "User-Agent")
+        
+        // Add OAuth token if available
+        if !authToken.isEmpty {
+            request.setValue("OAuth \(authToken)", forHTTPHeaderField: "Authorization")
+        }
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw SCError.downloadFailed("SoundCloud search API failed")
+        }
+        
+        // Parse JSON response
+        struct SearchResponse: Decodable {
+            let collection: [SCAPITrack]
+        }
+        
+        let searchResult = try JSONDecoder().decode(SearchResponse.self, from: data)
+        
+        return searchResult.collection.map { track in
+            // Process artwork URL - replace quality suffix for higher res
+            let artworkURL: URL? = {
+                guard let urlString = track.artwork_url else { return nil }
+                let highRes = urlString.replacingOccurrences(of: "-large", with: "-t500x500")
+                return URL(string: highRes)
+            }()
+            
             return SCTrack(
-                id: parts[0],
-                title: parts[1],
-                artist: parts[2],
-                duration: TimeInterval(parts[3]) ?? 0,
-                artworkURL: URL(string: parts[4]),
-                webURL: parts[5]
+                id: String(track.id),
+                title: track.title,
+                artist: track.user.username,
+                duration: TimeInterval(track.duration) / 1000.0,
+                artworkURL: artworkURL,
+                webURL: track.permalink_url
             )
         }
     }
@@ -169,7 +281,10 @@ class SoundCloudService: ObservableObject {
 
         // Use OAuth token if available
         if !authToken.isEmpty {
-            args += ["--add-header", "Authorization: OAuth \(authToken)"]
+            print("[SuckFy] Using OAuth token for download: \(authToken.prefix(20))...")
+            args += ["--add-header", "Authorization:OAuth \(authToken)"]
+        } else {
+            print("[SuckFy] No OAuth token - downloading without authentication")
         }
 
         args.append(track.webURL)
@@ -321,4 +436,19 @@ enum SCError: LocalizedError {
         case .notAuthenticated: return "Please log in to SoundCloud to download full tracks"
         }
     }
+}
+
+// MARK: - SoundCloud API Models
+
+private struct SCAPITrack: Decodable {
+    let id: Int
+    let title: String
+    let user: SCAPIUser
+    let duration: Int
+    let artwork_url: String?
+    let permalink_url: String
+}
+
+private struct SCAPIUser: Decodable {
+    let username: String
 }

@@ -10,6 +10,11 @@ actor SpotifyService {
     static let shared = SpotifyService()
     private let session: URLSession
     private let userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/125.0.0.0 Safari/537.36"
+    
+    // Token cache
+    private var cachedToken: String?
+    private var tokenExpiry: Date?
+    private var lastRequestTime: Date?
 
     private init() {
         let config = URLSessionConfiguration.default
@@ -60,10 +65,40 @@ actor SpotifyService {
         }
         return try JSONDecoder().decode(SpotifyPlaylist.self, from: data)
     }
+    
+    // MARK: - Get Spotify album by ID
+    
+    func album(id: String) async throws -> SpotifyAlbumFull {
+        let token = try await getSpotifyToken()
+        let url = URL(string: "https://api.spotify.com/v1/albums/\(id)")!
+        var req = URLRequest(url: url)
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        req.setValue(userAgent, forHTTPHeaderField: "User-Agent")
+        let (data, resp) = try await session.data(for: req)
+        if let r = resp as? HTTPURLResponse, r.statusCode == 429 {
+            throw SearchError.rateLimited
+        }
+        return try JSONDecoder().decode(SpotifyAlbumFull.self, from: data)
+    }
 
     // MARK: - Spotify TOTP Token (for import only)
 
     private func getSpotifyToken() async throws -> String {
+        // Check if we have a valid cached token
+        if let token = cachedToken,
+           let expiry = tokenExpiry,
+           expiry > Date() {
+            return token
+        }
+        
+        // Rate limiting: wait at least 1 second between token requests
+        if let lastRequest = lastRequestTime {
+            let elapsed = Date().timeIntervalSince(lastRequest)
+            if elapsed < 1.0 {
+                try await Task.sleep(for: .milliseconds(Int((1.0 - elapsed) * 1000)))
+            }
+        }
+        
         let totp = generateTOTP()
         var components = URLComponents(string: "https://open.spotify.com/api/token")!
         components.queryItems = [
@@ -76,8 +111,16 @@ actor SpotifyService {
         var req = URLRequest(url: components.url!)
         req.setValue(userAgent, forHTTPHeaderField: "User-Agent")
         req.setValue("https://open.spotify.com", forHTTPHeaderField: "Referer")
+        
+        lastRequestTime = Date()
+        
         let (data, _) = try await session.data(for: req)
         let json = try JSONDecoder().decode(SpotifyTokenResponse.self, from: data)
+        
+        // Cache token for 30 minutes
+        cachedToken = json.accessToken
+        tokenExpiry = Date().addingTimeInterval(30 * 60)
+        
         return json.accessToken
     }
 
@@ -212,6 +255,36 @@ struct SpotifyPlaylistTracks: Decodable {
 
 struct SpotifyPlaylistItem: Decodable {
     let track: SpotifyTrack?
+}
+
+struct SpotifyAlbumFull: Decodable {
+    let id: String
+    let name: String
+    let artists: [SpotifyArtist]
+    let images: [SpotifyImage]
+    let releaseDate: String?
+    let tracks: SpotifyAlbumTracks
+    
+    enum CodingKeys: String, CodingKey {
+        case id, name, artists, images, tracks
+        case releaseDate = "release_date"
+    }
+}
+
+struct SpotifyAlbumTracks: Decodable {
+    let items: [SpotifyAlbumTrack]
+}
+
+struct SpotifyAlbumTrack: Decodable {
+    let id: String
+    let name: String
+    let durationMs: Int
+    let artists: [SpotifyArtist]
+    
+    enum CodingKeys: String, CodingKey {
+        case id, name, artists
+        case durationMs = "duration_ms"
+    }
 }
 
 struct SpotifyTokenResponse: Decodable {

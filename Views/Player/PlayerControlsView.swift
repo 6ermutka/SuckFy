@@ -4,6 +4,7 @@ struct PlayerControlsView: View {
     @EnvironmentObject var player: PlayerCore
     @ObservedObject private var library = LibraryManager.shared
     @State private var showEqualizer = false
+    @State private var showAddToPlaylist = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -50,16 +51,41 @@ struct PlayerControlsView: View {
                         .lineLimit(1)
                 }
 
-                Button {
-                    library.toggleLike(track)
-                } label: {
-                    Image(systemName: library.isLiked(track) ? "heart.fill" : "heart")
-                        .font(.system(size: 13))
-                        .foregroundStyle(library.isLiked(track) ? Color.green : .secondary)
-                        .contentTransition(.symbolEffect(.replace))
+                HStack(spacing: 12) {
+                    Button {
+                        library.toggleLike(track)
+                    } label: {
+                        Image(systemName: library.isLiked(track) ? "heart.fill" : "heart")
+                            .font(.system(size: 14))
+                            .foregroundStyle(library.isLiked(track) ? Color.green : .secondary)
+                            .contentTransition(.symbolEffect(.replace))
+                    }
+                    .buttonStyle(.plain)
+                    .help("Like")
+                    
+                    if !library.playlists.isEmpty {
+                        Menu {
+                            Text("Add to playlist").font(.headline)
+                            Divider()
+                            ForEach(library.playlists) { playlist in
+                                Button {
+                                    library.addTrackToPlaylist(track, playlistID: playlist.id)
+                                } label: {
+                                    Label(playlist.name, systemImage: "music.note.list")
+                                }
+                            }
+                        } label: {
+                            Image(systemName: "text.badge.plus")
+                                .font(.system(size: 14))
+                                .foregroundStyle(.secondary)
+                        }
+                        .menuStyle(.borderlessButton)
+                        .menuIndicator(.hidden)
+                        .fixedSize()
+                        .help("Add to Playlist")
+                    }
                 }
-                .buttonStyle(.plain)
-                .padding(.leading, 4)
+                .padding(.leading, 8)
             } else {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("SuckFy")

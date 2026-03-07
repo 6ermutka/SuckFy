@@ -171,8 +171,13 @@ struct SoundCloudAuthView: View {
     private func connect() {
         let token = tokenInput.trimmingCharacters(in: .whitespaces)
         guard !token.isEmpty else { return }
-        sc.saveToken(token, username: "SoundCloud User")
-        withAnimation { isConnected = true }
+        
+        Task {
+            await sc.saveToken(token)
+            await MainActor.run {
+                withAnimation { isConnected = true }
+            }
+        }
     }
 
     private func stepRow(n: String, text: String) -> some View {

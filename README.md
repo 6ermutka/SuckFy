@@ -1,6 +1,6 @@
 # 🎵 SuckFy
 
-> A free Spotify-like music player for macOS — because why pay for something you can build yourself?
+> Бесплатный музыкальный плеер в стиле Spotify для macOS — зачем платить за то, что можно собрать самому?
 
 ![macOS](https://img.shields.io/badge/macOS-14.0+-black?style=flat&logo=apple)
 ![Swift](https://img.shields.io/badge/Swift-5.9-orange?style=flat&logo=swift)
@@ -9,48 +9,48 @@
 
 ---
 
-## ✨ Features
+## ✨ Возможности
 
-- 🔍 **Search** — Search millions of tracks via iTunes API (no account needed)
-- 🔗 **Spotify URL import** — Paste any Spotify track link and play it instantly
-- 📥 **Download & Cache** — Tracks are downloaded and cached locally for offline playback
-- 🎛️ **12-Band Equalizer** — Parametric EQ with presets (Bass Boost, Rock, Pop, Jazz, etc.)
-- 🌙 **Dark / Light mode** — Toggle in the sidebar
-- 🎵 **Menu Bar player** — Control playback from the menu bar
-- ❤️ **Liked Songs** — Save your favourite tracks
-- 📋 **Playlists** — Import Spotify playlists by URL
-- 🔀 **Shuffle & Repeat** — Full playback controls
+- 🔍 **Поиск** — Поиск миллионов треков через iTunes API (без регистрации)
+- 🔗 **Импорт Spotify URL** — Вставьте любую ссылку на трек Spotify и слушайте мгновенно
+- 📥 **Загрузка и кэширование** — Треки загружаются и кэшируются локально для офлайн-воспроизведения
+- 🎛️ **12-полосный эквалайзер** — Параметрический эквалайзер с пресетами (Bass Boost, Rock, Pop, Jazz и др.)
+- 🌙 **Темная / Светлая тема** — Переключение в боковой панели
+- 🎵 **Плеер в строке меню** — Управление воспроизведением из строки меню
+- ❤️ **Избранные треки** — Сохраняйте любимые композиции
+- 📋 **Плейлисты** — Импорт плейлистов Spotify по URL
+- 🔀 **Перемешивание и повтор** — Полный контроль воспроизведения
 
 ---
 
-## 🛠 How It Works
+## 🛠 Как это работает
 
-SuckFy uses a chain of free public APIs to stream music:
+SuckFy использует цепочку бесплатных публичных API для воспроизведения музыки:
 
 ```
-Search:   iTunes Search API → track metadata + artwork
+Поиск:    iTunes Search API → метаданные трека + обложка
           ↓
-Play:     Apple Music ID → song.link API → Tidal ID
+Воспр.:   Apple Music ID → song.link API → Tidal ID
           ↓
-          Tidal ID → spotisaver.net → direct MP4 audio URL
+          Tidal ID → spotisaver.net → прямая ссылка на MP4 аудио
           ↓
           AVAudioEngine + AVAudioUnitEQ → 🎵
 ```
 
-No Spotify account required. No subscription needed.
+Не требуется аккаунт Spotify. Не нужна подписка.
 
 ---
 
-## 📦 Requirements
+## 📦 Требования
 
-- macOS 14.0 (Sonoma) or later
-- Xcode 15+ (to build from source)
+- macOS 14.0 (Sonoma) или новее
+- Xcode 15+ (для сборки из исходников)
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Начало работы
 
-### Build from source
+### Сборка из исходников
 
 ```bash
 git clone https://github.com/6ermutka/SuckFy.git
@@ -58,57 +58,139 @@ cd SuckFy
 open .swiftpm/xcode/package.xcworkspace
 ```
 
-Then press **⌘R** in Xcode to build and run.
+Затем нажмите **⌘R** в Xcode для сборки и запуска.
 
-### Or build via CLI
+### Или сборка через CLI
 
 ```bash
-swift build
-.build/debug/SuckFy
+swift build -c release
+.build/release/SuckFy
+```
+
+### Создание .app
+
+```bash
+# Сборка release версии
+swift build -c release
+
+# Создание .app bundle
+mkdir -p SuckFy.app/Contents/MacOS
+mkdir -p SuckFy.app/Contents/Resources
+cp .build/release/SuckFy SuckFy.app/Contents/MacOS/
+cp SuckFy.icns SuckFy.app/Contents/Resources/
+cp Info.plist SuckFy.app/Contents/
+
+# Запуск приложения
+open SuckFy.app
 ```
 
 ---
 
-## 🎛️ Equalizer Bands
+## 🎛️ Полосы эквалайзера
 
-| Band | Frequency |
-|------|-----------|
-| 1    | 60 Hz     |
-| 2    | 150 Hz    |
-| 3    | 250 Hz    |
-| 4    | 500 Hz    |
-| 5    | 750 Hz    |
-| 6    | 1 kHz     |
-| 7    | 1.4 kHz   |
-| 8    | 2.5 kHz   |
-| 9    | 3.5 kHz   |
-| 10   | 4.1 kHz   |
-| 11   | 8 kHz     |
-| 12   | 16 kHz    |
-
----
-
-## 📡 APIs Used
-
-| Service | Purpose |
-|---------|---------|
-| [iTunes Search API](https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/) | Track search & metadata |
-| [song.link](https://odesli.co/) | Cross-platform track matching (Apple Music → Tidal) |
-| [spotisaver.net](https://spotisaver.net) | Tidal audio stream URLs |
+| Полоса | Частота  |
+|--------|----------|
+| 1      | 60 Гц    |
+| 2      | 150 Гц   |
+| 3      | 250 Гц   |
+| 4      | 500 Гц   |
+| 5      | 750 Гц   |
+| 6      | 1 кГц    |
+| 7      | 1.4 кГц  |
+| 8      | 2.5 кГц  |
+| 9      | 3.5 кГц  |
+| 10     | 4.1 кГц  |
+| 11     | 8 кГц    |
+| 12     | 16 кГц   |
 
 ---
 
-## ⚠️ Disclaimer
+## 📡 Используемые API
 
-This project is for **educational purposes only**. The authors do not condone piracy. Please support artists by purchasing their music or using legal streaming services.
-
----
-
-## 🙏 Credits
-
-- Inspired by [SpotiDownloader](https://github.com/afkarxyz/SpotiDownloader) and [SpotiFLAC](https://github.com/afkarxyz/SpotiFLAC)
-- Built with ❤️ and SwiftUI
+| Сервис | Назначение |
+|--------|------------|
+| [iTunes Search API](https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/) | Поиск треков и метаданные |
+| [song.link](https://odesli.co/) | Кросс-платформенное сопоставление треков (Apple Music → Tidal) |
+| [spotisaver.net](https://spotisaver.net) | URL аудио-потоков Tidal |
 
 ---
 
-*SuckFy — Because Spotify sucks your wallet dry* 😄
+## 🏗️ Архитектура проекта
+
+### Структура файлов
+
+```
+SuckFy/
+├── App/
+│   └── MusicPlayerApp.swift      # Точка входа приложения
+├── Models/
+│   └── Track.swift                # Модель трека
+├── Player/
+│   └── PlayerCore.swift           # Ядро аудио-плеера (AVAudioEngine)
+├── Services/
+│   ├── DownloadService.swift      # Загрузка и кэширование треков
+│   ├── EqualizerService.swift     # 12-полосный эквалайзер
+│   ├── SoundCloudService.swift    # Интеграция с SoundCloud
+│   └── SpotifyService.swift       # Интеграция со Spotify
+└── Views/
+    ├── Components/                # Переиспользуемые UI компоненты
+    ├── Equalizer/                 # Интерфейс эквалайзера
+    ├── Home/                      # Главный экран
+    ├── Main/                      # Основной контейнер
+    ├── MenuBar/                   # Виджет строки меню
+    ├── NowPlaying/                # Экран текущего трека
+    ├── Player/                    # Элементы управления плеером
+    ├── Search/                    # Интерфейс поиска
+    ├── Sidebar/                   # Боковая панель
+    └── SoundCloud/                # Авторизация SoundCloud
+```
+
+### Технологии
+
+- **SwiftUI** — Современный декларативный UI фреймворк
+- **AVAudioEngine** — Низкоуровневый аудио-движок для воспроизведения
+- **AVAudioUnitEQ** — Параметрический эквалайзер
+- **URLSession** — Работа с сетевыми запросами и загрузкой треков
+- **AppStorage** — Персистентное хранение настроек
+- **Combine** — Реактивное программирование
+
+### Основные компоненты
+
+#### PlayerCore
+Центральный класс, управляющий:
+- Воспроизведением треков через AVAudioEngine
+- Очередью воспроизведения
+- Режимами shuffle/repeat
+- Интеграцией с эквалайзером
+
+#### DownloadService
+- Загрузка треков с кэшированием
+- Управление локальным хранилищем
+- Прогресс загрузки
+
+#### EqualizerService
+- 12 настраиваемых частотных полос
+- Предустановленные пресеты
+- Реалтайм обработка аудио
+
+#### SpotifyService & SoundCloudService
+- Парсинг URL треков и плейлистов
+- Получение метаданных
+- Конвертация в универсальный формат Track
+
+---
+
+## ⚠️ Дисклеймер
+
+Этот проект создан **исключительно в образовательных целях**. Авторы не поддерживают пиратство. Пожалуйста, поддерживайте артистов, покупая их музыку или используя легальные стриминговые сервисы.
+
+---
+
+## 🙏 Благодарности
+
+- Вдохновлено проектами [SpotiDownloader](https://github.com/afkarxyz/SpotiDownloader) и [SpotiFLAC](https://github.com/afkarxyz/SpotiFLAC)
+- Создано с ❤️ и SwiftUI
+
+---
+
+*SuckFy — Потому что Spotify высасывает деньги из вашего кошелька* 😄

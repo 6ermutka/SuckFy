@@ -3,6 +3,7 @@ import SwiftUI
 struct SearchView: View {
     @EnvironmentObject var player: PlayerCore
     @ObservedObject private var sc = SoundCloudService.shared
+    @ObservedObject private var library = LibraryManager.shared
     @State private var selectedTab: SearchTab = .spotify
     @State private var searchText = ""
     @State private var spotifyURL = ""
@@ -16,6 +17,39 @@ struct SearchView: View {
     @State private var showSCAuth = false
 
     enum SearchTab { case spotify, soundcloud }
+    
+    // Computed properties to simplify UI logic
+    private var isSCLocked: Bool {
+        selectedTab == .soundcloud && !sc.isAuthenticated
+    }
+    
+    private var searchPlaceholder: String {
+        isSCLocked ? "Log in to search SoundCloud…" : "Search by track name or artist…"
+    }
+    
+    private var urlPlaceholder: String {
+        isSCLocked ? "Log in to paste SoundCloud links…" : "Paste Spotify or SoundCloud track link…"
+    }
+    
+    private var linkIconColor: Color {
+        if isSCLocked { return Color(nsColor: .tertiaryLabelColor) }
+        if spotifyURL.isEmpty { return Color(nsColor: .secondaryLabelColor) }
+        return spotifyURL.contains("soundcloud") ? .orange : .green
+    }
+    
+    private var playButtonColor: Color {
+        if spotifyURL.isEmpty { return .gray }
+        return spotifyURL.contains("soundcloud") ? .orange : .green
+    }
+    
+    private var searchBorderColor: Color {
+        isSCLocked ? Color.orange.opacity(0.3) : Color(nsColor: .separatorColor).opacity(0.4)
+    }
+    
+    private var urlBorderColor: Color {
+        if urlError != nil { return Color.red.opacity(0.5) }
+        return isSCLocked ? Color.orange.opacity(0.3) : Color.primary.opacity(0.12)
+    }
 
 
     var body: some View {
@@ -60,16 +94,17 @@ struct SearchView: View {
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(isSCLocked ? Color(nsColor: .tertiaryLabelColor) : Color(nsColor: .secondaryLabelColor))
 
-                    TextField("Search by track name or artist…", text: $searchText)
+                    TextField(searchPlaceholder, text: $searchText)
                         .textFieldStyle(.plain)
                         .font(.system(size: 14))
                         .onSubmit { triggerSearch() }
+                        .disabled(isSCLocked)
 
                     if !searchText.isEmpty {
                         Button { searchText = ""; searchResults = []; searchError = nil } label: {
-                            Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary)
+                            Image(systemName: "xmark.circle.fill").foregroundStyle(Color(nsColor: .tertiaryLabelColor))
                         }.buttonStyle(.plain)
                     }
                     if isSearching { ProgressView().scaleEffect(0.65) }
@@ -77,47 +112,47 @@ struct SearchView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 9)
                 .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(.separator.opacity(0.4), lineWidth: 0.5))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(searchBorderColor, lineWidth: isSCLocked ? 1 : 0.5))
+                .opacity(isSCLocked ? 0.6 : 1.0)
                 .onChange(of: searchText) { scheduleSearch() }
 
-                // --- Spotify URL bar ---
+                // --- Track URL bar (Spotify or SoundCloud) ---
                 HStack(spacing: 8) {
                     HStack(spacing: 10) {
                         Image(systemName: "link")
                             .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(spotifyURL.isEmpty ? Color.secondary : Color.green)
+                            .foregroundStyle(linkIconColor)
 
-                        TextField("Paste Spotify track link…", text: $spotifyURL)
+                        TextField(urlPlaceholder, text: $spotifyURL)
                             .textFieldStyle(.plain)
                             .font(.system(size: 14))
-                            .onSubmit { loadSpotifyURL() }
+                            .onSubmit { loadTrackURL() }
+                            .disabled(isSCLocked)
 
                         if !spotifyURL.isEmpty {
                             Button { spotifyURL = ""; urlError = nil } label: {
-                                Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary)
+                                Image(systemName: "xmark.circle.fill").foregroundStyle(Color(nsColor: .tertiaryLabelColor))
                             }.buttonStyle(.plain)
                         }
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 9)
                     .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(urlError != nil ? Color.red.opacity(0.5) : Color.primary.opacity(0.12), lineWidth: 0.5)
-                    )
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(urlBorderColor, lineWidth: isSCLocked ? 1 : 0.5))
+                    .opacity(isSCLocked ? 0.6 : 1.0)
 
                     if isLoadingURL {
                         ProgressView().scaleEffect(0.8).frame(width: 60)
                     } else {
-                        Button(action: loadSpotifyURL) {
+                        Button(action: loadTrackURL) {
                             Text("Play")
                                 .font(.system(size: 13, weight: .semibold))
                                 .foregroundStyle(.white)
                                 .frame(width: 60, height: 36)
-                                .background(spotifyURL.isEmpty ? Color.gray : Color.green, in: RoundedRectangle(cornerRadius: 8))
+                                .background(playButtonColor, in: RoundedRectangle(cornerRadius: 8))
                         }
                         .buttonStyle(.plain)
-                        .disabled(spotifyURL.isEmpty)
+                        .disabled(spotifyURL.isEmpty || isSCLocked)
                     }
                 }
 
@@ -222,6 +257,34 @@ struct SearchView: View {
                                     )
                                     player.play(track)
                                 }
+                                .contextMenu {
+                                    let track = Track(
+                                        id: "sc:\(scTrack.id)",
+                                        title: scTrack.title,
+                                        artist: scTrack.artist,
+                                        album: scTrack.webURL,
+                                        artworkURL: scTrack.artworkURL,
+                                        duration: scTrack.duration,
+                                        source: .soundCloud
+                                    )
+                                    
+                                    Button {
+                                        library.toggleLike(track)
+                                    } label: {
+                                        Label(library.isLiked(track) ? "Remove from Liked" : "Add to Liked",
+                                              systemImage: library.isLiked(track) ? "heart.slash" : "heart")
+                                    }
+                                    
+                                    if !library.playlists.isEmpty {
+                                        Menu("Add to Playlist") {
+                                            ForEach(library.playlists) { playlist in
+                                                Button(playlist.name) {
+                                                    library.addTrackToPlaylist(track, playlistID: playlist.id)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                         }
                     }
                     .padding(.horizontal, 12)
@@ -232,20 +295,29 @@ struct SearchView: View {
         }
     }
 
-    // MARK: - Spotify URL Import
+    // MARK: - Track URL Import (Spotify or SoundCloud)
 
-    private func loadSpotifyURL() {
+    private func loadTrackURL() {
         let raw = spotifyURL.trimmingCharacters(in: .whitespaces)
-        NSLog("[SuckFy] loadSpotifyURL called with: \(raw)")
+        NSLog("[SuckFy] loadTrackURL called with: \(raw)")
         guard !raw.isEmpty else { return }
 
+        // Detect platform
+        if raw.contains("soundcloud.com") {
+            loadSoundCloudURL(raw)
+        } else {
+            loadSpotifyURL(raw)
+        }
+    }
+
+    private func loadSpotifyURL(_ raw: String) {
         guard let trackID = extractSpotifyTrackID(from: raw) else {
-            NSLog("[SuckFy] Failed to extract track ID from: \(raw)")
+            NSLog("[SuckFy] Failed to extract Spotify track ID from: \(raw)")
             urlError = "Invalid Spotify URL — make sure it contains /track/"
             return
         }
 
-        NSLog("[SuckFy] Extracted track ID: \(trackID)")
+        NSLog("[SuckFy] Extracted Spotify track ID: \(trackID)")
         urlError = nil
         isLoadingURL = true
 
@@ -261,6 +333,38 @@ struct SearchView: View {
         isLoadingURL = false
         spotifyURL = ""
         player.play(track)
+    }
+
+    private func loadSoundCloudURL(_ raw: String) {
+        NSLog("[SuckFy] Loading SoundCloud URL: \(raw)")
+        urlError = nil
+        isLoadingURL = true
+
+        Task {
+            do {
+                let scTrack = try await SoundCloudService.shared.getTrackByURL(raw)
+                let track = Track(
+                    id: "sc:\(scTrack.id)",
+                    title: scTrack.title,
+                    artist: scTrack.artist,
+                    album: scTrack.webURL, // store webURL in album field
+                    artworkURL: scTrack.artworkURL,
+                    duration: scTrack.duration,
+                    source: .soundCloud
+                )
+                await MainActor.run {
+                    isLoadingURL = false
+                    spotifyURL = ""
+                    player.play(track)
+                }
+            } catch {
+                await MainActor.run {
+                    isLoadingURL = false
+                    urlError = "Failed to load SoundCloud track: \(error.localizedDescription)"
+                    NSLog("[SuckFy] SoundCloud URL error: \(error)")
+                }
+            }
+        }
     }
 
     private func extractSpotifyTrackID(from url: String) -> String? {
@@ -388,6 +492,24 @@ struct SearchView: View {
                 ForEach(searchResults) { track in
                     SearchTrackRow(track: track)
                         .onTapGesture { player.play(track) }
+                        .contextMenu {
+                            Button {
+                                library.toggleLike(track)
+                            } label: {
+                                Label(library.isLiked(track) ? "Remove from Liked" : "Add to Liked", 
+                                      systemImage: library.isLiked(track) ? "heart.slash" : "heart")
+                            }
+                            
+                            if !library.playlists.isEmpty {
+                                Menu("Add to Playlist") {
+                                    ForEach(library.playlists) { playlist in
+                                        Button(playlist.name) {
+                                            library.addTrackToPlaylist(track, playlistID: playlist.id)
+                                        }
+                                    }
+                                }
+                            }
+                        }
                 }
             }
             .padding(.horizontal, 12)

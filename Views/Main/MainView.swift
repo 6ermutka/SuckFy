@@ -4,12 +4,13 @@ struct MainView: View {
     @EnvironmentObject var player: PlayerCore
     @StateObject private var library = LibraryManager.shared
     @State private var selectedItem: SidebarItem = .home
+    @State private var selectedPlaylist: Playlist?
 
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 // Sidebar
-                SidebarView(selectedItem: $selectedItem)
+                SidebarView(selectedItem: $selectedItem, selectedPlaylist: $selectedPlaylist)
 
                 // Divider
                 Divider().opacity(0.4)
@@ -21,18 +22,23 @@ struct MainView: View {
                         .fill(.background)
                         .ignoresSafeArea()
 
-                    switch selectedItem {
-                    case .home:
-                        HomeView()
+                    if let playlist = selectedPlaylist {
+                        PlaylistView(playlist: playlist)
                             .environmentObject(library)
-                    case .search:
-                        SearchView()
-                    case .library:
-                        LibraryView()
-                            .environmentObject(library)
-                    case .likedSongs:
-                        LikedSongsView()
-                            .environmentObject(library)
+                    } else {
+                        switch selectedItem {
+                        case .home:
+                            HomeView()
+                                .environmentObject(library)
+                        case .search:
+                            SearchView()
+                        case .library:
+                            LibraryView()
+                                .environmentObject(library)
+                        case .likedSongs:
+                            LikedSongsView()
+                                .environmentObject(library)
+                        }
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -222,6 +228,126 @@ struct LikedSongsView: View {
                                 .onTapGesture(count: 2) {
                                     player.isShuffle = false
                                     player.playCollection(library.likedSongs, startIndex: i)
+                                }
+                                .contextMenu {
+                                    if !library.playlists.isEmpty {
+                                        Menu("Add to Playlist") {
+                                            ForEach(library.playlists) { playlist in
+                                                Button(playlist.name) {
+                                                    library.addTrackToPlaylist(track, playlistID: playlist.id)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                }
+                .scrollIndicators(.hidden)
+            }
+        }
+    }
+}
+
+// MARK: - Playlist View
+struct PlaylistView: View {
+    let playlist: Playlist
+    @EnvironmentObject var library: LibraryManager
+    @EnvironmentObject var player: PlayerCore
+    @State private var hoveredId: String?
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
+            HStack(spacing: 20) {
+                ZStack {
+                    LinearGradient(colors: [.blue, .cyan], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    Image(systemName: "music.note.list")
+                        .font(.system(size: 40))
+                        .foregroundStyle(.white)
+                }
+                .frame(width: 110, height: 110)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .shadow(color: .blue.opacity(0.4), radius: 16, x: 0, y: 8)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("PLAYLIST").font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary).tracking(1)
+                    Text(playlist.name).font(.system(size: 36, weight: .bold))
+                    if !playlist.description.isEmpty {
+                        Text(playlist.description)
+                            .font(.system(size: 13)).foregroundStyle(.secondary)
+                    }
+                    Text("\(playlist.tracks.count) songs")
+                        .font(.system(size: 13)).foregroundStyle(.secondary)
+
+                    // Play / Shuffle buttons
+                    if !playlist.tracks.isEmpty {
+                        HStack(spacing: 10) {
+                            // Shuffle
+                            Button {
+                                player.isShuffle = true
+                                player.playCollection(playlist.tracks, startIndex: Int.random(in: 0..<playlist.tracks.count))
+                            } label: {
+                                Label("Shuffle", systemImage: "shuffle")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(.black)
+                                    .padding(.horizontal, 18)
+                                    .padding(.vertical, 8)
+                                    .background(Color.white, in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+
+                            // Play
+                            Button {
+                                player.isShuffle = false
+                                player.playCollection(playlist.tracks, startIndex: 0)
+                            } label: {
+                                Label("Play", systemImage: "play.fill")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 18)
+                                    .padding(.vertical, 8)
+                                    .background(Color.green, in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 28)
+            .padding(.bottom, 20)
+
+            Divider().opacity(0.4)
+
+            if playlist.tracks.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "music.note.list")
+                        .font(.system(size: 40, weight: .light)).foregroundStyle(.quaternary)
+                    Text("No tracks in this playlist")
+                        .font(.system(size: 16, weight: .semibold)).foregroundStyle(.secondary)
+                    Text("Search for songs and add them to this playlist")
+                        .font(.system(size: 13)).foregroundStyle(.tertiary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 2) {
+                        ForEach(Array(playlist.tracks.enumerated()), id: \.element.id) { i, track in
+                            TrackListRow(track: track, index: i, isHovered: hoveredId == track.id)
+                                .onHover { hoveredId = $0 ? track.id : nil }
+                                .onTapGesture(count: 2) {
+                                    player.isShuffle = false
+                                    player.playCollection(playlist.tracks, startIndex: i)
+                                }
+                                .contextMenu {
+                                    Button {
+                                        library.removeTrackFromPlaylist(track, playlistID: playlist.id)
+                                    } label: {
+                                        Label("Remove from Playlist", systemImage: "minus.circle")
+                                    }
                                 }
                         }
                     }
