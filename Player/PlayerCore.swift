@@ -23,6 +23,7 @@ class PlayerCore: ObservableObject {
     @Published var isShuffle: Bool = false
     @Published var repeatMode: RepeatMode = .off
     @Published var currentPlaylist: Playlist?
+    @Published var showQueue: Bool = false
 
     // Download state
     @Published var isLoadingTrack: Bool = false
@@ -38,6 +39,7 @@ class PlayerCore: ObservableObject {
     private var playbackStartTime: Date?
     private var playbackOffset: TimeInterval = 0
     private var shuffleHistory: [String] = []   // track IDs already played in shuffle
+    private var shuffleOrder: [Track] = []       // actual shuffle order for display
     private var isSeeking: Bool = false          // prevents seek from triggering handleTrackEnd
     private var isManualNext: Bool = false       // prevents handleTrackEnd loop on manual next
 
@@ -101,7 +103,11 @@ class PlayerCore: ObservableObject {
         // Set flag to prevent handleTrackEnd from old track interfering
         isManualNext = true
         
-        if let playlist { currentPlaylist = playlist; queue = playlist.tracks }
+        if let playlist { 
+            currentPlaylist = playlist
+            queue = playlist.tracks
+            generateShuffleOrder()
+        }
         if !queue.contains(track) { queue.append(track) }
         Task { await loadAndPlay(track) }
     }
@@ -111,8 +117,26 @@ class PlayerCore: ObservableObject {
     func playCollection(_ tracks: [Track], startIndex: Int) {
         queue = tracks
         shuffleHistory.removeAll()  // Reset shuffle history for new collection
+        generateShuffleOrder()      // Generate shuffle order
         let idx = max(0, min(startIndex, tracks.count - 1))
         Task { await loadAndPlay(tracks[idx]) }
+    }
+    
+    /// Get the queue in display order (shuffle order if shuffle is on)
+    func getDisplayQueue() -> [Track] {
+        if isShuffle && !shuffleOrder.isEmpty {
+            return shuffleOrder
+        }
+        return queue
+    }
+    
+    /// Generate a new shuffle order
+    private func generateShuffleOrder() {
+        if isShuffle {
+            shuffleOrder = queue.shuffled()
+        } else {
+            shuffleOrder = []
+        }
     }
 
     func next() {
@@ -121,19 +145,32 @@ class PlayerCore: ObservableObject {
         // Set flag BEFORE any operations to prevent handleTrackEnd loop
         isManualNext = true
         if isShuffle {
-            // Get tracks not yet played
-            let unplayed = queue.filter { !shuffleHistory.contains($0.id) }
-            if unplayed.isEmpty {
-                // All tracks played — reset history and start over
-                shuffleHistory.removeAll()
+            // Use shuffleOrder to get the next track in shuffle sequence
+            guard !shuffleOrder.isEmpty else {
+                // Fallback if shuffleOrder is empty
                 if let first = queue.randomElement() {
                     Task { await loadAndPlay(first) }
                 }
+                return
+            }
+            
+            // Find current track in shuffle order
+            guard let current = currentTrack,
+                  let currentIndex = shuffleOrder.firstIndex(of: current) else {
+                // If current track not found, play first in shuffle order
+                Task { await loadAndPlay(shuffleOrder[0]) }
+                return
+            }
+            
+            // Get next track in shuffle order
+            let nextIndex = currentIndex + 1
+            if nextIndex < shuffleOrder.count {
+                Task { await loadAndPlay(shuffleOrder[nextIndex]) }
             } else {
-                // Pick random unplayed track
-                if let next = unplayed.randomElement() {
-                    Task { await loadAndPlay(next) }
-                }
+                // Reached end of shuffle order, regenerate and start over
+                generateShuffleOrder()
+                shuffleHistory.removeAll()
+                Task { await loadAndPlay(shuffleOrder[0]) }
             }
         } else {
             guard let current = currentTrack,
@@ -151,10 +188,19 @@ class PlayerCore: ObservableObject {
             seek(to: 0)
             return
         }
-        guard let current = currentTrack,
-              let idx = queue.firstIndex(of: current) else { return }
-        let prevIdx = (idx - 1 + queue.count) % queue.count
-        Task { await loadAndPlay(queue[prevIdx]) }
+        
+        if isShuffle && !shuffleOrder.isEmpty {
+            // Use shuffle order for previous
+            guard let current = currentTrack,
+                  let currentIndex = shuffleOrder.firstIndex(of: current) else { return }
+            let prevIndex = (currentIndex - 1 + shuffleOrder.count) % shuffleOrder.count
+            Task { await loadAndPlay(shuffleOrder[prevIndex]) }
+        } else {
+            guard let current = currentTrack,
+                  let idx = queue.firstIndex(of: current) else { return }
+            let prevIdx = (idx - 1 + queue.count) % queue.count
+            Task { await loadAndPlay(queue[prevIdx]) }
+        }
     }
 
     func seek(to fraction: Double) {
@@ -194,7 +240,14 @@ class PlayerCore: ObservableObject {
         }
     }
 
-    func toggleShuffle() { isShuffle.toggle() }
+    func toggleShuffle() { 
+        isShuffle.toggle()
+        if isShuffle {
+            generateShuffleOrder()
+        } else {
+            shuffleOrder = []
+        }
+    }
 
     func toggleRepeat() {
         switch repeatMode {

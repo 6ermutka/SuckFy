@@ -24,31 +24,60 @@ struct SidebarView: View {
     @EnvironmentObject var player: PlayerCore
     @ObservedObject private var library = LibraryManager.shared
     @AppStorage("colorScheme") private var colorSchemePref: String = "dark"
+    @AppStorage("sidebarCollapsed") private var isCollapsed: Bool = false
 
     // Create playlist
     @State private var showCreatePlaylist = false
     @State private var newPlaylistName = ""
+    @State private var editingPlaylist: Playlist?
+    @State private var showEditSheet = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Logo
+            // Logo + collapse button
             HStack(spacing: 8) {
                 Image(systemName: "music.note.house.fill")
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(
                         LinearGradient(colors: [.green, .mint], startPoint: .topLeading, endPoint: .bottomTrailing)
                     )
-                Text("SuckFy")
-                    .font(.system(size: 18, weight: .bold))
+                
+                if !isCollapsed {
+                    Text("SuckFy")
+                        .font(.system(size: 18, weight: .bold))
+                    
+                    Spacer()
+                    
+                    Button {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            isCollapsed.toggle()
+                        }
+                    } label: {
+                        Image(systemName: "sidebar.left")
+                            .font(.system(size: 14))
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Collapse Sidebar")
+                }
             }
             .padding(.horizontal, 18)
             .padding(.top, 20)
             .padding(.bottom, 20)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                if isCollapsed {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        isCollapsed = false
+                    }
+                }
+            }
 
             // Nav items
             VStack(alignment: .leading, spacing: 1) {
                 ForEach(SidebarItem.allCases) { item in
-                    SidebarNavItem(item: item, isSelected: selectedItem == item)
+                    SidebarNavItem(item: item, isSelected: selectedItem == item, isCollapsed: isCollapsed)
                         .onTapGesture {
                             withAnimation(.easeInOut(duration: 0.15)) {
                                 selectedItem = item
@@ -60,35 +89,39 @@ struct SidebarView: View {
             .padding(.horizontal, 8)
 
             // Create playlist button
-            Button {
-                showCreatePlaylist = true
-            } label: {
-                HStack(spacing: 10) {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 16))
-                        .foregroundStyle(.green)
-                    Text("Create Playlist")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(.secondary)
-                    Spacer()
+            if !isCollapsed {
+                Button {
+                    showCreatePlaylist = true
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 16))
+                            .foregroundStyle(.green)
+                        Text("Create Playlist")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 10)
                 }
-                .padding(.horizontal, 18)
-                .padding(.vertical, 10)
+                .buttonStyle(.plain)
+                .padding(.top, 6)
             }
-            .buttonStyle(.plain)
-            .padding(.top, 6)
 
-            Divider()
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+            if !isCollapsed {
+                Divider()
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
 
-            // Playlists section
-            Text("PLAYLISTS")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.tertiary)
-                .tracking(0.8)
-                .padding(.horizontal, 20)
-                .padding(.bottom, 6)
+                // Playlists section
+                Text("PLAYLISTS")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+                    .tracking(0.8)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 6)
+            }
 
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 1) {
@@ -99,7 +132,8 @@ struct SidebarView: View {
                             subtitle: "\(library.likedSongs.count) songs",
                             artworkURL: nil,
                             iconName: "heart.fill",
-                            iconColor: .purple
+                            iconColor: .purple,
+                            isCollapsed: isCollapsed
                         ) {
                             selectedItem = .likedSongs
                             selectedPlaylist = nil
@@ -112,7 +146,16 @@ struct SidebarView: View {
                             subtitle: "\(playlist.tracks.count) songs",
                             artworkURL: playlist.artworkURL,
                             iconName: "music.note.list",
-                            iconColor: .blue
+                            iconColor: .blue,
+                            isCollapsed: isCollapsed,
+                            playlistID: playlist.id,
+                            onEdit: {
+                                editingPlaylist = playlist
+                                showEditSheet = true
+                            },
+                            onDelete: {
+                                library.removePlaylist(playlist)
+                            }
                         ) {
                             selectedPlaylist = playlist
                             selectedItem = .home // Reset sidebar selection
@@ -125,29 +168,40 @@ struct SidebarView: View {
             Spacer()
 
             // Theme toggle
-            Divider().padding(.horizontal, 16).opacity(0.4)
-            HStack(spacing: 8) {
-                Image(systemName: colorSchemePref == "dark" ? "moon.fill" : "sun.max.fill")
-                    .font(.system(size: 13))
-                    .foregroundStyle(colorSchemePref == "dark" ? .indigo : .orange)
-                Text(colorSchemePref == "dark" ? "Dark" : "Light")
-                    .font(.system(size: 13))
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Toggle("", isOn: Binding(
-                    get: { colorSchemePref == "dark" },
-                    set: { colorSchemePref = $0 ? "dark" : "light" }
-                ))
-                .toggleStyle(.switch)
-                .scaleEffect(0.8)
+            if !isCollapsed {
+                Divider().padding(.horizontal, 16).opacity(0.4)
+                HStack(spacing: 8) {
+                    Image(systemName: colorSchemePref == "dark" ? "moon.fill" : "sun.max.fill")
+                        .font(.system(size: 13))
+                        .foregroundStyle(colorSchemePref == "dark" ? .indigo : .orange)
+                    Text(colorSchemePref == "dark" ? "Dark" : "Light")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Toggle("", isOn: Binding(
+                        get: { colorSchemePref == "dark" },
+                        set: { colorSchemePref = $0 ? "dark" : "light" }
+                    ))
+                    .toggleStyle(.switch)
+                    .scaleEffect(0.8)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
         }
-        .frame(width: 220)
+        .frame(width: isCollapsed ? 70 : 220)
         .background(.ultraThinMaterial)
         .sheet(isPresented: $showCreatePlaylist) {
             CreatePlaylistSheet(isPresented: $showCreatePlaylist)
+        }
+        .sheet(item: $editingPlaylist) { playlist in
+            EditPlaylistSheet(
+                isPresented: Binding(
+                    get: { editingPlaylist != nil },
+                    set: { if !$0 { editingPlaylist = nil } }
+                ),
+                playlist: playlist
+            )
         }
     }
 }
@@ -156,6 +210,7 @@ struct SidebarView: View {
 struct SidebarNavItem: View {
     let item: SidebarItem
     let isSelected: Bool
+    let isCollapsed: Bool
 
     var body: some View {
         HStack(spacing: 10) {
@@ -163,10 +218,13 @@ struct SidebarNavItem: View {
                 .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(isSelected ? Color.green : .secondary)
                 .frame(width: 22)
-            Text(item.rawValue)
-                .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
-                .foregroundStyle(isSelected ? .primary : .secondary)
-            Spacer()
+            
+            if !isCollapsed {
+                Text(item.rawValue)
+                    .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                    .foregroundStyle(isSelected ? .primary : .secondary)
+                Spacer()
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
@@ -175,6 +233,7 @@ struct SidebarNavItem: View {
                 .fill(isSelected ? Color.primary.opacity(0.08) : Color.clear)
         )
         .contentShape(Rectangle())
+        .help(isCollapsed ? item.rawValue : "")
     }
 }
 
@@ -185,36 +244,44 @@ struct SidebarPlaylistRow: View {
     let artworkURL: URL?
     let iconName: String
     let iconColor: Color
+    let isCollapsed: Bool
+    var playlistID: String? = nil
+    var onEdit: (() -> Void)? = nil
+    var onDelete: (() -> Void)? = nil
     let action: () -> Void
     @State private var isHovered = false
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 10) {
-                Group {
-                    if let url = artworkURL {
-                        AsyncImage(url: url) { img in
-                            img.resizable().aspectRatio(contentMode: .fill)
-                        } placeholder: {
-                            placeholderIcon
-                        }
+                // Use ArtworkView for proper caching and custom artwork support
+                ZStack {
+                    if let url = artworkURL, let playlistID = playlistID {
+                        ArtworkView(url: url, size: 36, cornerRadius: 5, trackID: playlistID, editable: false)
+                            .id("\(playlistID)-\(name)")  // Force refresh when name changes
+                    } else if let playlistID = playlistID {
+                        ArtworkView(url: nil, size: 36, cornerRadius: 5, trackID: playlistID, editable: false)
+                            .id("\(playlistID)-\(name)")
                     } else {
                         placeholderIcon
+                            .frame(width: 36, height: 36)
+                            .clipShape(RoundedRectangle(cornerRadius: 5))
                     }
                 }
                 .frame(width: 36, height: 36)
-                .clipShape(RoundedRectangle(cornerRadius: 5))
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(name)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                    Text(subtitle)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
+                if !isCollapsed {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(name)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                        Text(subtitle)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
                 }
-                Spacer()
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
@@ -222,6 +289,25 @@ struct SidebarPlaylistRow: View {
         }
         .buttonStyle(.plain)
         .onHover { isHovered = $0 }
+        .contextMenu {
+            if let onEdit = onEdit {
+                Button {
+                    onEdit()
+                } label: {
+                    Label("Edit Playlist", systemImage: "pencil")
+                }
+            }
+            
+            if let onDelete = onDelete {
+                Divider()
+                Button(role: .destructive) {
+                    onDelete()
+                } label: {
+                    Label("Delete Playlist", systemImage: "trash")
+                }
+            }
+        }
+        .help(isCollapsed ? name : "")
     }
 
     private var placeholderIcon: some View {
@@ -235,7 +321,150 @@ struct SidebarPlaylistRow: View {
     }
 }
 
-// MARK: - Import Playlist Sheet
+// MARK: - Edit Playlist Sheet
+struct EditPlaylistSheet: View {
+    @Binding var isPresented: Bool
+    let playlist: Playlist
+    @ObservedObject private var library = LibraryManager.shared
+    @State private var playlistName = ""
+    @State private var playlistDescription = ""
+    @State private var showImagePicker = false
+    @State private var selectedImageURL: URL?
+    @ObservedObject private var artworkCache = ArtworkCacheService.shared
+
+    var body: some View {
+        VStack(spacing: 20) {
+            // Header with icon
+            HStack(spacing: 10) {
+                Image(systemName: "pencil.circle.fill")
+                    .font(.system(size: 20))
+                    .foregroundStyle(.green)
+                Text("Edit Playlist")
+                    .font(.system(size: 18, weight: .bold))
+            }
+
+            // Artwork
+            VStack(spacing: 8) {
+                Group {
+                    if let customArtwork = artworkCache.getCustomArtwork(for: playlist.id),
+                       let nsImage = NSImage(contentsOf: customArtwork) {
+                        Image(nsImage: nsImage)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    } else if let url = playlist.artworkURL {
+                        AsyncImage(url: url) { phase in
+                            switch phase {
+                            case .success(let img):
+                                img.resizable().aspectRatio(contentMode: .fill)
+                            case .failure(_):
+                                placeholderArtwork
+                            case .empty:
+                                ProgressView()
+                            @unknown default:
+                                placeholderArtwork
+                            }
+                        }
+                    } else {
+                        placeholderArtwork
+                    }
+                }
+                .frame(width: 120, height: 120)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.primary.opacity(0.1), lineWidth: 1)
+                )
+                
+                Button {
+                    showImagePicker = true
+                } label: {
+                    Label("Change Artwork", systemImage: "photo")
+                        .font(.system(size: 12))
+                }
+                .buttonStyle(.bordered)
+            }
+
+            VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Name")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                    TextField("Playlist Name", text: $playlistName)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 360)
+                }
+                
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Description")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                    TextField("Description", text: $playlistDescription)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 360)
+                }
+            }
+
+            HStack(spacing: 12) {
+                Button("Cancel") { isPresented = false }
+                    .buttonStyle(.bordered)
+                    .keyboardShortcut(.cancelAction)
+
+                Button("Save") { saveChanges() }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.green)
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(playlistName.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+        }
+        .padding(32)
+        .frame(width: 480)
+        .fileImporter(
+            isPresented: $showImagePicker,
+            allowedContentTypes: [.image],
+            allowsMultipleSelection: false
+        ) { result in
+            if case .success(let urls) = result, let url = urls.first {
+                print("🖼️ Setting custom artwork for playlist: \(playlist.id)")
+                print("📁 Image URL: \(url)")
+                artworkCache.setCustomArtwork(for: playlist.id, imageURL: url)
+                print("✅ Custom artwork set, checking...")
+                if artworkCache.hasCustomArtwork(for: playlist.id) {
+                    print("✅ Verified: Custom artwork exists for \(playlist.id)")
+                } else {
+                    print("❌ Error: Custom artwork NOT found after setting!")
+                }
+            }
+        }
+        .onAppear {
+            playlistName = playlist.name
+            playlistDescription = playlist.description
+        }
+    }
+
+    private func saveChanges() {
+        print("💾 Saving playlist changes...")
+        let trimmedName = playlistName.trimmingCharacters(in: .whitespaces)
+        let trimmedDesc = playlistDescription.trimmingCharacters(in: .whitespaces)
+        
+        // Use the library method to update and save
+        library.updatePlaylist(playlist.id, name: trimmedName, description: trimmedDesc)
+        print("✅ Playlist updated: \(trimmedName)")
+        
+        isPresented = false
+    }
+    
+    private var placeholderArtwork: some View {
+        RoundedRectangle(cornerRadius: 0)
+            .fill(Color.blue.opacity(0.3))
+            .overlay {
+                Image(systemName: "music.note.list")
+                    .font(.system(size: 40))
+                    .foregroundStyle(.white)
+            }
+    }
+}
+
+// MARK: - Create Playlist Sheet
 struct CreatePlaylistSheet: View {
     @Binding var isPresented: Bool
     @ObservedObject private var library = LibraryManager.shared

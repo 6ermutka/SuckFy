@@ -101,10 +101,10 @@ struct Track: Identifiable, Equatable, Hashable {
 
 // MARK: - Playlist Model
 
-struct Playlist: Identifiable {
+struct Playlist: Identifiable, Equatable, Hashable {
     let id: String
-    let name: String
-    let description: String
+    var name: String
+    var description: String
     let artworkURL: URL?
     var tracks: [Track]
 
@@ -121,6 +121,14 @@ struct Playlist: Identifiable {
         let m = Int(totalDuration) / 60
         let s = Int(totalDuration) % 60
         return String(format: "%d:%02d", m, s)
+    }
+    
+    static func == (lhs: Playlist, rhs: Playlist) -> Bool {
+        lhs.id == rhs.id
+    }
+    
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
     }
 }
 
@@ -182,6 +190,13 @@ class LibraryManager: ObservableObject {
     func removeTrackFromPlaylist(_ track: Track, playlistID: String) {
         guard let index = playlists.firstIndex(where: { $0.id == playlistID }) else { return }
         playlists[index].tracks.removeAll { $0.id == track.id }
+        save()
+    }
+    
+    func updatePlaylist(_ playlistID: String, name: String, description: String) {
+        guard let index = playlists.firstIndex(where: { $0.id == playlistID }) else { return }
+        playlists[index].name = name
+        playlists[index].description = description
         save()
     }
 

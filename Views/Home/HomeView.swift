@@ -93,7 +93,7 @@ struct RecentTrackCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             ZStack(alignment: .bottomTrailing) {
-                ArtworkView(url: track.artworkURL, size: 150)
+                ArtworkView(url: track.artworkURL, size: 150, trackID: track.id)
                 if isHovered {
                     Button { player.play(track) } label: {
                         Image(systemName: isCurrent && player.isPlaying ? "pause.fill" : "play.fill")
@@ -144,7 +144,7 @@ struct QuickTrackTile: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            ArtworkView(url: track.artworkURL, size: 44, cornerRadius: 6)
+            ArtworkView(url: track.artworkURL, size: 44, cornerRadius: 6, trackID: track.id)
             VStack(alignment: .leading, spacing: 2) {
                 Text(track.title)
                     .font(.system(size: 13, weight: .semibold))

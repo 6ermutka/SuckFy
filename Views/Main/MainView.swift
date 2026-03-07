@@ -42,6 +42,17 @@ struct MainView: View {
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                
+                // Queue sidebar (shown when showQueue is true)
+                if player.showQueue {
+                    VStack(spacing: 0) {
+                        Divider()
+                        QueueView()
+                            .environmentObject(player)
+                    }
+                    .frame(width: 320)
+                    .transition(.move(edge: .trailing))
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
@@ -124,7 +135,8 @@ struct PlaylistRow: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            ArtworkView(url: playlist.artworkURL, size: 52, cornerRadius: 6)
+            ArtworkView(url: playlist.artworkURL, size: 52, cornerRadius: 6, trackID: playlist.id)
+                .id("\(playlist.id)-\(playlist.name)")
             VStack(alignment: .leading, spacing: 4) {
                 Text(playlist.name)
                     .font(.system(size: 14, weight: .semibold))
@@ -262,15 +274,9 @@ struct PlaylistView: View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
             HStack(spacing: 20) {
-                ZStack {
-                    LinearGradient(colors: [.blue, .cyan], startPoint: .topLeading, endPoint: .bottomTrailing)
-                    Image(systemName: "music.note.list")
-                        .font(.system(size: 40))
-                        .foregroundStyle(.white)
-                }
-                .frame(width: 110, height: 110)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .shadow(color: .blue.opacity(0.4), radius: 16, x: 0, y: 8)
+                ArtworkView(url: playlist.artworkURL, size: 110, cornerRadius: 12, trackID: playlist.id, editable: true)
+                    .id("\(playlist.id)-\(playlist.name)")
+                    .shadow(color: .blue.opacity(0.4), radius: 16, x: 0, y: 8)
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("PLAYLIST").font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary).tracking(1)
@@ -388,7 +394,7 @@ struct TrackListRow: View {
             }
             .frame(width: 28)
 
-            ArtworkView(url: track.artworkURL, size: 40, cornerRadius: 4)
+            ArtworkView(url: track.artworkURL, size: 40, cornerRadius: 4, trackID: track.id)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(track.title)

@@ -27,7 +27,13 @@ struct PlayerControlsView: View {
     private var leftSection: some View {
         HStack(spacing: 12) {
             ZStack {
-                ArtworkView(url: player.currentTrack?.artworkURL, size: 52, cornerRadius: 6)
+                ArtworkView(
+                    url: player.currentTrack?.artworkURL,
+                    size: 52,
+                    cornerRadius: 6,
+                    trackID: player.currentTrack?.id,
+                    editable: true
+                )
                 if player.isLoadingTrack {
                     RoundedRectangle(cornerRadius: 6)
                         .fill(Color.black.opacity(0.45))
@@ -231,6 +237,21 @@ struct PlayerControlsView: View {
 
             PlayerSliderView(value: $player.volume, onSeek: nil)
                 .frame(width: 90)
+
+            // Queue button
+            Button {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    player.showQueue.toggle()
+                }
+            } label: {
+                Image(systemName: player.showQueue ? "list.bullet.circle.fill" : "list.bullet")
+                    .font(.system(size: 14))
+                    .foregroundStyle(player.showQueue ? Color.green : Color.secondary)
+                    .symbolEffect(.bounce, value: player.showQueue)
+            }
+            .buttonStyle(.plain)
+            .help("View Queue")
+            .disabled(player.queue.isEmpty)
 
             // EQ button
             Button {

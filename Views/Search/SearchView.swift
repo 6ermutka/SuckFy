@@ -530,7 +530,7 @@ struct SearchTrackRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            ArtworkView(url: track.artworkURL, size: 44)
+            ArtworkView(url: track.artworkURL, size: 44, trackID: track.id)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(track.title)
@@ -582,7 +582,7 @@ struct SCTrackRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            ArtworkView(url: scTrack.artworkURL, size: 44)
+            ArtworkView(url: scTrack.artworkURL, size: 44, trackID: "sc:\(scTrack.id)")
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(scTrack.title)

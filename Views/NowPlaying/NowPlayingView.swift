@@ -45,7 +45,8 @@ struct NowPlayingView: View {
 
     private func playlistHeader(_ playlist: Playlist) -> some View {
         HStack(spacing: 24) {
-            ArtworkView(url: playlist.artworkURL, size: 160, cornerRadius: 12)
+            ArtworkView(url: playlist.artworkURL, size: 160, cornerRadius: 12, trackID: playlist.id, editable: true)
+                .id("\(playlist.id)-\(playlist.name)")  // Force refresh on changes
                 .shadow(color: .black.opacity(0.2), radius: 16, x: 0, y: 8)
 
             VStack(alignment: .leading, spacing: 10) {
