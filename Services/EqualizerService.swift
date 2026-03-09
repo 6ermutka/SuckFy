@@ -1,5 +1,8 @@
 import Foundation
 import AVFoundation
+import Combine
+
+#if os(macOS)
 
 // MARK: - Equalizer Band
 
@@ -147,3 +150,58 @@ class EqualizerService: ObservableObject {
         }
     }
 }
+
+#elseif os(iOS)
+
+// MARK: - iOS Stub (Equalizer not supported on iOS)
+
+struct EQBand: Identifiable {
+    let id: Int
+    let frequency: Float
+    let label: String
+    var gain: Float = 0
+    
+    static let bands: [EQBand] = []
+}
+
+struct EQPreset: Identifiable {
+    let id: String
+    let name: String
+    let gains: [Float]
+    
+    static let presets: [EQPreset] = [
+        EQPreset(id: "flat", name: "Flat", gains: [])
+    ]
+}
+
+@MainActor
+class EqualizerService: ObservableObject {
+    static let shared = EqualizerService()
+    
+    @Published var bands: [EQBand] = []
+    @Published var isEnabled: Bool = false
+    @Published var selectedPreset: String = "flat"
+    
+    let engine = AVAudioEngine()
+    let playerNode = AVAudioPlayerNode()
+    
+    init() {
+        // Setup basic audio engine for iOS
+        engine.attach(playerNode)
+        let format = engine.mainMixerNode.outputFormat(forBus: 0)
+        engine.connect(playerNode, to: engine.mainMixerNode, format: format)
+        
+        do {
+            try engine.start()
+        } catch {
+            print("[iOS] Engine start error: \(error)")
+        }
+    }
+    
+    func setBand(_ index: Int, gain: Float) {}
+    func applyPreset(_ preset: EQPreset) {}
+    func toggleEnabled() {}
+    func reset() {}
+}
+
+#endif

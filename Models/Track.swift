@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import Combine
 
 // MARK: - Track Source
 
@@ -7,12 +8,14 @@ enum TrackSource: String, Codable {
     case spotify    // Downloaded via Tidal/song.link
     case soundCloud // Downloaded via yt-dlp + SC OAuth
     case itunes     // iTunes search result (downloaded via Tidal)
+    case imported   // Imported local files
 
     var icon: String {
         switch self {
         case .spotify:    return "s.circle.fill"
         case .soundCloud: return "cloud.fill"
         case .itunes:     return "s.circle.fill"
+        case .imported:   return "arrow.down.doc.fill"
         }
     }
 
@@ -21,6 +24,7 @@ enum TrackSource: String, Codable {
         case .spotify:    return Color.green
         case .soundCloud: return Color.orange
         case .itunes:     return Color.green
+        case .imported:   return Color.purple
         }
     }
 
@@ -29,6 +33,7 @@ enum TrackSource: String, Codable {
         case .spotify:    return "Spotify"
         case .soundCloud: return "SoundCloud"
         case .itunes:     return "Spotify"
+        case .imported:   return "Import"
         }
     }
 }
@@ -48,6 +53,17 @@ struct Track: Identifiable, Equatable, Hashable {
     var localURL: URL?
     var isDownloaded: Bool { localURL != nil }
     var isDownloading: Bool = false
+    
+    // Mutating method to update source
+    mutating func updateSource() {
+        if id.hasPrefix("sc:") {
+            source = .soundCloud
+        } else if id.hasPrefix("itunes:") {
+            source = .itunes
+        } else {
+            source = .spotify
+        }
+    }
 
     static func == (lhs: Track, rhs: Track) -> Bool { lhs.id == rhs.id }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
@@ -141,15 +157,19 @@ class LibraryManager: ObservableObject {
     @Published var likedSongs: [Track] = []
     @Published var playlists: [Playlist] = []
     @Published var recentlyPlayed: [Track] = []
+    @Published var downloadedTracks: [Track] = []
 
     private let likedKey = "dotify.likedSongs"
     private let recentKey = "dotify.recentlyPlayed"
     private let playlistsKey = "dotify.playlists"
     
-    // Use specific suite to ensure data persists across app launches
-    private let defaults = UserDefaults(suiteName: "com.suckfy.musicplayer") ?? UserDefaults.standard
+    // Use standard UserDefaults for data persistence
+    private let defaults = UserDefaults.standard
 
-    private init() { load() }
+    private init() { 
+        load()
+        loadDownloadedTracks()
+    }
 
     func isLiked(_ track: Track) -> Bool { likedSongs.contains(where: { $0.id == track.id }) }
 
@@ -226,6 +246,137 @@ class LibraryManager: ObservableObject {
            let encodedPlaylists = try? JSONDecoder().decode([EncodablePlaylist].self, from: data) {
             playlists = encodedPlaylists.map(\.playlist)
         }
+    }
+    
+    // MARK: - Downloaded Tracks Management
+    
+    func loadDownloadedTracks() {
+        Task {
+            let cachedIDs = await DownloadService.shared.getAllCachedTracks()
+            
+            // Match cached files with tracks from recent/liked/playlists
+            var tracks: [Track] = []
+            
+            for trackID in cachedIDs {
+                // Determine source from ID
+                let source: TrackSource
+                var isImported = false
+                
+                if trackID.hasPrefix("sc:") {
+                    source = .soundCloud
+                } else if trackID.hasPrefix("itunes:") {
+                    source = .itunes
+                } else {
+                    // Check if it's an imported file (UUID format without metadata)
+                    let localURL = await DownloadService.shared.cacheFile(for: trackID)
+                    if FileManager.default.fileExists(atPath: localURL.path) {
+                        // If we can't find it in library, it's imported
+                        if findTrack(byID: trackID) == nil {
+                            source = .imported
+                            isImported = true
+                        } else {
+                            source = .spotify
+                        }
+                    } else {
+                        source = .spotify
+                    }
+                }
+                
+                // Try to find track in existing data
+                if let track = findTrack(byID: trackID) {
+                    var updatedTrack = track
+                    updatedTrack.localURL = await DownloadService.shared.cacheFile(for: trackID)
+                    updatedTrack.source = source
+                    tracks.append(updatedTrack)
+                } else {
+                    // Track not found in library - might be imported
+                    let localURL = await DownloadService.shared.cacheFile(for: trackID)
+                    
+                    // For imported files, try to get filename as title
+                    var title = "Unknown Track"
+                    if isImported || source == .imported {
+                        // Get the original filename from cache
+                        let filename = localURL.deletingPathExtension().lastPathComponent
+                        // If it's not a UUID, use it as title
+                        if filename != trackID {
+                            title = filename
+                        } else {
+                            // Try to find any file with this trackID in cache
+                            let cacheDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+                                .appendingPathComponent("Dotify")
+                            if let files = try? FileManager.default.contentsOfDirectory(at: cacheDir, includingPropertiesForKeys: nil) {
+                                for file in files {
+                                    if file.lastPathComponent.hasPrefix(trackID) {
+                                        title = file.deletingPathExtension().lastPathComponent
+                                        break
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    let track = Track(
+                        id: trackID,
+                        title: title,
+                        artist: source == .imported ? "Local File" : "Unknown Artist",
+                        album: "",
+                        artworkURL: nil,
+                        duration: 0,
+                        localURL: localURL,
+                        source: source
+                    )
+                    tracks.append(track)
+                }
+            }
+            
+            await MainActor.run {
+                self.downloadedTracks = tracks.sorted { $0.title < $1.title }
+            }
+        }
+    }
+    
+    func deleteDownloadedTrack(_ track: Track) {
+        Task {
+            do {
+                try await DownloadService.shared.deleteCachedTrack(track.id)
+                await MainActor.run {
+                    downloadedTracks.removeAll { $0.id == track.id }
+                }
+            } catch {
+                print("Failed to delete track: \(error)")
+            }
+        }
+    }
+    
+    func getDownloadedTrackSize(_ track: Track) -> String {
+        Task {
+            let size = await DownloadService.shared.getCachedFileSize(track.id)
+            return formatFileSize(size)
+        }
+        return "..."
+    }
+    
+    private func formatFileSize(_ bytes: Int64) -> String {
+        let mb = Double(bytes) / 1_048_576
+        return String(format: "%.1f MB", mb)
+    }
+    
+    private func findTrack(byID id: String) -> Track? {
+        // Search in recent
+        if let track = recentlyPlayed.first(where: { $0.id == id }) {
+            return track
+        }
+        // Search in liked
+        if let track = likedSongs.first(where: { $0.id == id }) {
+            return track
+        }
+        // Search in playlists
+        for playlist in playlists {
+            if let track = playlist.tracks.first(where: { $0.id == id }) {
+                return track
+            }
+        }
+        return nil
     }
 }
 

@@ -2,11 +2,24 @@ import SwiftUI
 
 struct PlayerControlsView: View {
     @EnvironmentObject var player: PlayerCore
-    @ObservedObject private var library = LibraryManager.shared
+    @EnvironmentObject var library: LibraryManager
+    
+    #if os(iOS)
+    @Environment(\.horizontalSizeClass) var horizontalSizeClass
+    #endif
     @State private var showEqualizer = false
     @State private var showAddToPlaylist = false
 
     var body: some View {
+        #if os(macOS)
+        macOSLayout
+        #elseif os(iOS)
+        iOSLayout
+        #endif
+    }
+    
+    // MARK: - macOS Layout
+    private var macOSLayout: some View {
         VStack(spacing: 0) {
             Divider().opacity(0.4)
 
@@ -20,6 +33,173 @@ struct PlayerControlsView: View {
             .frame(height: 86)
             .background(.ultraThinMaterial)
         }
+    }
+    
+    // MARK: - iOS Layout  
+    private var iOSLayout: some View {
+        VStack(spacing: 6) {
+            Divider().opacity(0.4)
+            
+            // Track info и controls
+            HStack(spacing: 12) {
+                // Artwork
+                ZStack {
+                    ArtworkView(
+                        url: player.currentTrack?.artworkURL,
+                        size: 50,
+                        cornerRadius: 6,
+                        trackID: player.currentTrack?.id,
+                        editable: false
+                    )
+                    if player.isLoadingTrack {
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(Color.black.opacity(0.45))
+                        ProgressView().scaleEffect(0.7).tint(.white)
+                    }
+                }
+                
+                // Track info
+                VStack(alignment: .leading, spacing: 2) {
+                    if let track = player.currentTrack {
+                        Text(track.title)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                        Text(track.artist)
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                        
+                        // Download status
+                        if player.isLoadingTrack {
+                            HStack(spacing: 4) {
+                                Text(player.downloadStatus)
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(.tertiary)
+                                if player.downloadProgress > 0 {
+                                    Text("(\(Int(player.downloadProgress * 100))%)")
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(.tertiary)
+                                }
+                            }
+                        }
+                    } else {
+                        Text("SuckFy")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                        Text("Search for a track")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                
+                Spacer()
+                
+                // Action buttons (like, add to playlist)
+                if let track = player.currentTrack {
+                    HStack(spacing: 16) {
+                        Button {
+                            library.toggleLike(track)
+                        } label: {
+                            Image(systemName: library.isLiked(track) ? "heart.fill" : "heart")
+                                .font(.system(size: 18))
+                                .foregroundStyle(library.isLiked(track) ? Color.green : .secondary)
+                        }
+                        .buttonStyle(.plain)
+                        
+                        if !library.playlists.isEmpty {
+                            Menu {
+                                ForEach(library.playlists) { playlist in
+                                    Button {
+                                        library.addTrackToPlaylist(track, playlistID: playlist.id)
+                                    } label: {
+                                        Label(playlist.name, systemImage: "music.note.list")
+                                    }
+                                }
+                            } label: {
+                                Image(systemName: "text.badge.plus")
+                                    .font(.system(size: 18))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            
+            // Progress slider
+            VStack(spacing: 4) {
+                PlayerSliderView(
+                    value: Binding(
+                        get: { player.progress },
+                        set: { _ in }
+                    ),
+                    onSeek: { newValue in
+                        player.seek(to: newValue)
+                    }
+                )
+                .frame(height: 20)
+                
+                HStack {
+                    Text(formatTime(player.currentTime))
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(formatTime(player.currentTrack?.duration ?? 0))
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(.horizontal, 16)
+            
+            // Playback controls
+            HStack(spacing: 24) {
+                Button { player.toggleShuffle() } label: {
+                    Image(systemName: "shuffle")
+                        .font(.system(size: 16))
+                        .foregroundStyle(player.isShuffle ? .green : .secondary)
+                }
+                .buttonStyle(.plain)
+                
+                Button { player.previous() } label: {
+                    Image(systemName: "backward.fill")
+                        .font(.system(size: 24))
+                        .foregroundStyle(.primary)
+                }
+                .buttonStyle(.plain)
+                
+                Button { player.playPause() } label: {
+                    Image(systemName: player.isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                        .font(.system(size: 48))
+                        .foregroundStyle(.primary)
+                }
+                .buttonStyle(.plain)
+                
+                Button { player.next() } label: {
+                    Image(systemName: "forward.fill")
+                        .font(.system(size: 24))
+                        .foregroundStyle(.primary)
+                }
+                .buttonStyle(.plain)
+                
+                Button { player.toggleRepeat() } label: {
+                    Image(systemName: player.repeatMode == .one ? "repeat.1" : "repeat")
+                        .font(.system(size: 16))
+                        .foregroundStyle(player.repeatMode != .off ? .green : .secondary)
+                }
+                .buttonStyle(.plain)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.bottom, 8)
+        }
+        .background(.ultraThinMaterial)
+    }
+    
+    private func formatTime(_ time: TimeInterval) -> String {
+        let minutes = Int(time) / 60
+        let seconds = Int(time) % 60
+        return String(format: "%d:%02d", minutes, seconds)
     }
 
     // MARK: - Left: Track Info
@@ -315,7 +495,7 @@ struct PlayerSliderView: View {
             }
             .frame(height: 13)
             .contentShape(Rectangle())
-            .onHover { isHovering = $0 }
+            .platformHover(isHovered: $isHovering)
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { drag in

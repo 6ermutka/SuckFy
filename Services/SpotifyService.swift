@@ -25,11 +25,36 @@ actor SpotifyService {
     // MARK: - Search via iTunes API
 
     func search(query: String, limit: Int = 25) async throws -> [SpotifyTrack] {
+        print("🔍 [SEARCH] Starting search for: '\(query)'")
         let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
-        let url = URL(string: "https://itunes.apple.com/search?term=\(encoded)&media=music&entity=song&limit=\(limit)")!
-        let (data, _) = try await session.data(from: url)
-        let result = try JSONDecoder().decode(iTunesSearchResponse.self, from: data)
-        return result.results.map { SpotifyTrack(from: $0) }
+        let urlString = "https://itunes.apple.com/search?term=\(encoded)&media=music&entity=song&limit=\(limit)"
+        print("🔍 [SEARCH] URL: \(urlString)")
+        
+        guard let url = URL(string: urlString) else {
+            print("❌ [SEARCH] Invalid URL")
+            throw SearchError.invalidURL
+        }
+        
+        do {
+            print("🔍 [SEARCH] Making request...")
+            let (data, response) = try await session.data(from: url)
+            
+            if let httpResponse = response as? HTTPURLResponse {
+                print("🔍 [SEARCH] Response status: \(httpResponse.statusCode)")
+            }
+            
+            print("🔍 [SEARCH] Received \(data.count) bytes")
+            let result = try JSONDecoder().decode(iTunesSearchResponse.self, from: data)
+            print("✅ [SEARCH] Found \(result.results.count) tracks")
+            return result.results.map { SpotifyTrack(from: $0) }
+        } catch {
+            print("❌ [SEARCH] Error: \(error)")
+            print("❌ [SEARCH] Error type: \(type(of: error))")
+            if let urlError = error as? URLError {
+                print("❌ [SEARCH] URLError code: \(urlError.code.rawValue)")
+            }
+            throw error
+        }
     }
 
     // MARK: - Get Spotify track by ID (for import via URL)
@@ -293,5 +318,14 @@ struct SpotifyTokenResponse: Decodable {
 
 enum SearchError: LocalizedError {
     case rateLimited
-    var errorDescription: String? { "Search rate limited. Please try again in a moment." }
+    case invalidURL
+    
+    var errorDescription: String? {
+        switch self {
+        case .rateLimited:
+            return "Search rate limited. Please try again in a moment."
+        case .invalidURL:
+            return "Invalid URL"
+        }
+    }
 }

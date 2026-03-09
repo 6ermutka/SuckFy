@@ -32,8 +32,8 @@ struct SearchView: View {
     }
     
     private var linkIconColor: Color {
-        if isSCLocked { return Color(nsColor: .tertiaryLabelColor) }
-        if spotifyURL.isEmpty { return Color(nsColor: .secondaryLabelColor) }
+        if isSCLocked { return Color.secondary.opacity(0.5) }
+        if spotifyURL.isEmpty { return Color.secondary }
         return spotifyURL.contains("soundcloud") ? .orange : .green
     }
     
@@ -43,7 +43,7 @@ struct SearchView: View {
     }
     
     private var searchBorderColor: Color {
-        isSCLocked ? Color.orange.opacity(0.3) : Color(nsColor: .separatorColor).opacity(0.4)
+        isSCLocked ? Color.orange.opacity(0.3) : Color.primary.opacity(0.2)
     }
     
     private var urlBorderColor: Color {
@@ -94,7 +94,7 @@ struct SearchView: View {
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(isSCLocked ? Color(nsColor: .tertiaryLabelColor) : Color(nsColor: .secondaryLabelColor))
+                        .foregroundStyle(isSCLocked ? Color.secondary.opacity(0.5) : Color.secondary)
 
                     TextField(searchPlaceholder, text: $searchText)
                         .textFieldStyle(.plain)
@@ -104,7 +104,7 @@ struct SearchView: View {
 
                     if !searchText.isEmpty {
                         Button { searchText = ""; searchResults = []; searchError = nil } label: {
-                            Image(systemName: "xmark.circle.fill").foregroundStyle(Color(nsColor: .tertiaryLabelColor))
+                            Image(systemName: "xmark.circle.fill").foregroundStyle(Color.secondary.opacity(0.5))
                         }.buttonStyle(.plain)
                     }
                     if isSearching { ProgressView().scaleEffect(0.65) }
@@ -131,7 +131,7 @@ struct SearchView: View {
 
                         if !spotifyURL.isEmpty {
                             Button { spotifyURL = ""; urlError = nil } label: {
-                                Image(systemName: "xmark.circle.fill").foregroundStyle(Color(nsColor: .tertiaryLabelColor))
+                                Image(systemName: "xmark.circle.fill").foregroundStyle(Color.secondary.opacity(0.5))
                             }.buttonStyle(.plain)
                         }
                     }
@@ -414,11 +414,22 @@ struct SearchView: View {
         if selectedTab == .spotify {
             Task {
                 do {
+                    print("🎵 [SearchView] Starting Spotify search...")
                     let results = try await SpotifyService.shared.search(query: query, limit: 25)
+                    print("🎵 [SearchView] Got \(results.count) results")
                     let tracks = results.map { Track(from: $0) }
-                    await MainActor.run { searchResults = tracks; isSearching = false }
+                    await MainActor.run { 
+                        searchResults = tracks
+                        isSearching = false
+                        print("✅ [SearchView] Search completed successfully")
+                    }
                 } catch {
-                    await MainActor.run { searchError = error.localizedDescription; isSearching = false }
+                    print("❌ [SearchView] Search failed: \(error)")
+                    print("❌ [SearchView] Error description: \(error.localizedDescription)")
+                    await MainActor.run { 
+                        searchError = "Search failed: \(error.localizedDescription)"
+                        isSearching = false 
+                    }
                 }
             }
         } else {
@@ -566,7 +577,7 @@ struct SearchTrackRow: View {
                 .fill(isHovered ? Color.primary.opacity(0.06) : Color.clear)
         )
         .contentShape(Rectangle())
-        .onHover { isHovered = $0 }
+        .platformHover(isHovered: $isHovered)
         .animation(.easeInOut(duration: 0.12), value: isHovered)
     }
 }
@@ -618,7 +629,7 @@ struct SCTrackRow: View {
                 .fill(isHovered ? Color.orange.opacity(0.06) : Color.clear)
         )
         .contentShape(Rectangle())
-        .onHover { isHovered = $0 }
+        .platformHover(isHovered: $isHovered)
         .animation(.easeInOut(duration: 0.12), value: isHovered)
     }
 }

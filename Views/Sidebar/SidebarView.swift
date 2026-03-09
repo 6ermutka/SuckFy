@@ -5,8 +5,13 @@ enum SidebarItem: String, CaseIterable, Identifiable {
     case search    = "Search"
     case library   = "Library"
     case likedSongs = "Liked Songs"
+    case settings  = "Settings"
 
     var id: String { rawValue }
+    
+    var localizedName: String {
+        tr(rawValue)
+    }
 
     var icon: String {
         switch self {
@@ -14,6 +19,7 @@ enum SidebarItem: String, CaseIterable, Identifiable {
         case .search:     return "magnifyingglass"
         case .library:    return "music.note.list"
         case .likedSongs: return "heart.fill"
+        case .settings:   return "gear"
         }
     }
 }
@@ -23,6 +29,7 @@ struct SidebarView: View {
     @Binding var selectedPlaylist: Playlist?
     @EnvironmentObject var player: PlayerCore
     @ObservedObject private var library = LibraryManager.shared
+    @ObservedObject private var localization = LocalizationService.shared
     @AppStorage("colorScheme") private var colorSchemePref: String = "dark"
     @AppStorage("sidebarCollapsed") private var isCollapsed: Bool = false
 
@@ -97,7 +104,7 @@ struct SidebarView: View {
                         Image(systemName: "plus.circle.fill")
                             .font(.system(size: 16))
                             .foregroundStyle(.green)
-                        Text("Create Playlist")
+                        Text(tr("Create Playlist"))
                             .font(.system(size: 14, weight: .medium))
                             .foregroundStyle(.secondary)
                         Spacer()
@@ -115,7 +122,7 @@ struct SidebarView: View {
                     .padding(.vertical, 12)
 
                 // Playlists section
-                Text("PLAYLISTS")
+                Text(tr("PLAYLISTS"))
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(.tertiary)
                     .tracking(0.8)
@@ -128,8 +135,8 @@ struct SidebarView: View {
                     // Liked Songs shortcut
                     if !library.likedSongs.isEmpty {
                         SidebarPlaylistRow(
-                            name: "Liked Songs",
-                            subtitle: "\(library.likedSongs.count) songs",
+                            name: tr("Liked Songs"),
+                            subtitle: "\(library.likedSongs.count) \(tr("songs"))",
                             artworkURL: nil,
                             iconName: "heart.fill",
                             iconColor: .purple,
@@ -143,7 +150,7 @@ struct SidebarView: View {
                     ForEach(library.playlists) { playlist in
                         SidebarPlaylistRow(
                             name: playlist.name,
-                            subtitle: "\(playlist.tracks.count) songs",
+                            subtitle: "\(playlist.tracks.count) \(tr("songs"))",
                             artworkURL: playlist.artworkURL,
                             iconName: "music.note.list",
                             iconColor: .blue,
@@ -174,7 +181,7 @@ struct SidebarView: View {
                     Image(systemName: colorSchemePref == "dark" ? "moon.fill" : "sun.max.fill")
                         .font(.system(size: 13))
                         .foregroundStyle(colorSchemePref == "dark" ? .indigo : .orange)
-                    Text(colorSchemePref == "dark" ? "Dark" : "Light")
+                    Text(tr(colorSchemePref == "dark" ? "Dark" : "Light"))
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
                     Spacer()
@@ -220,7 +227,7 @@ struct SidebarNavItem: View {
                 .frame(width: 22)
             
             if !isCollapsed {
-                Text(item.rawValue)
+                Text(item.localizedName)
                     .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
                     .foregroundStyle(isSelected ? .primary : .secondary)
                 Spacer()
@@ -288,7 +295,7 @@ struct SidebarPlaylistRow: View {
             .background(RoundedRectangle(cornerRadius: 8).fill(isHovered ? Color.primary.opacity(0.06) : Color.clear))
         }
         .buttonStyle(.plain)
-        .onHover { isHovered = $0 }
+        .platformHover(isHovered: $isHovered)
         .contextMenu {
             if let onEdit = onEdit {
                 Button {
@@ -346,11 +353,24 @@ struct EditPlaylistSheet: View {
             // Artwork
             VStack(spacing: 8) {
                 Group {
-                    if let customArtwork = artworkCache.getCustomArtwork(for: playlist.id),
-                       let nsImage = NSImage(contentsOf: customArtwork) {
-                        Image(nsImage: nsImage)
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
+                    if let customArtwork = artworkCache.getCustomArtwork(for: playlist.id) {
+                        #if os(macOS)
+                        if let nsImage = NSImage(contentsOf: customArtwork) {
+                            Image(nsImage: nsImage)
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                        } else {
+                            placeholderArtwork
+                        }
+                        #elseif os(iOS)
+                        if let uiImage = UIImage(contentsOfFile: customArtwork.path) {
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                        } else {
+                            placeholderArtwork
+                        }
+                        #endif
                     } else if let url = playlist.artworkURL {
                         AsyncImage(url: url) { phase in
                             switch phase {

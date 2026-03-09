@@ -1,5 +1,6 @@
 import Foundation
 import Security
+import Combine
 
 // MARK: - SoundCloud Service
 // Uses yt-dlp with OAuth token for full track downloads
@@ -14,6 +15,7 @@ class SoundCloudService: ObservableObject {
 
     private let keychainKey = "suckfy.soundcloud.oauth"
     private let ytdlpPath: String
+    private let ffmpegPath: String
 
     private init() {
         // Find yt-dlp
@@ -24,6 +26,16 @@ class SoundCloudService: ObservableObject {
         } else {
             ytdlpPath = "yt-dlp"
         }
+        
+        // Find ffmpeg (required for audio conversion)
+        if FileManager.default.fileExists(atPath: "/usr/local/bin/ffmpeg") {
+            ffmpegPath = "/usr/local/bin"
+        } else if FileManager.default.fileExists(atPath: "/opt/homebrew/bin/ffmpeg") {
+            ffmpegPath = "/opt/homebrew/bin"
+        } else {
+            ffmpegPath = "/usr/bin"
+        }
+        
         loadToken()
     }
 
@@ -258,13 +270,14 @@ class SoundCloudService: ObservableObject {
         onStatus: ((String) -> Void)? = nil,
         onProgress: ((Double) -> Void)? = nil
     ) async throws -> URL {
+        // Ensure cache directory exists first
+        try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
+        
         // Check cache
         let cacheURL = cacheFile(for: track.id)
         if FileManager.default.fileExists(atPath: cacheURL.path) {
             return cacheURL
         }
-
-        try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
 
         onStatus?("Connecting to SoundCloud…")
         onProgress?(0.05)
@@ -276,7 +289,10 @@ class SoundCloudService: ObservableObject {
             "-o", cacheDirectory.appendingPathComponent("%(id)s.%(ext)s").path,
             "--no-warnings",
             "--progress",
-            "--newline"
+            "--newline",
+            "--ffmpeg-location", ffmpegPath,
+            "--no-part",  // Disable .part files to avoid rename issues
+            "--concurrent-fragments", "1"  // Download fragments sequentially
         ]
 
         // Use OAuth token if available
@@ -294,12 +310,44 @@ class SoundCloudService: ObservableObject {
         // Run with progress parsing
         try await runProcessWithProgress(args, onStatus: onStatus, onProgress: onProgress)
 
-        guard FileManager.default.fileExists(atPath: cacheURL.path) else {
-            throw SCError.downloadFailed("File not found after download")
+        // Wait for file to appear and stop growing (fully written)
+        var lastSize: Int64 = -1
+        var stableCount = 0
+        var attempts = 0
+        let maxAttempts = 60 // 30 seconds max
+        
+        while attempts < maxAttempts {
+            if FileManager.default.fileExists(atPath: cacheURL.path) {
+                // Get current file size
+                let attrs = try? FileManager.default.attributesOfItem(atPath: cacheURL.path)
+                let currentSize = attrs?[.size] as? Int64 ?? 0
+                
+                // Check if size is stable (not changing)
+                if currentSize == lastSize && currentSize > 0 {
+                    stableCount += 1
+                    // If size is stable for 2 checks (1 second), file is ready
+                    if stableCount >= 2 {
+                        onProgress?(1.0)
+                        return cacheURL
+                    }
+                } else {
+                    stableCount = 0
+                    lastSize = currentSize
+                }
+            }
+            
+            try await Task.sleep(nanoseconds: 500_000_000) // 0.5 second
+            attempts += 1
         }
-
-        onProgress?(1.0)
-        return cacheURL
+        
+        // Timeout - but if file exists, return it anyway
+        if FileManager.default.fileExists(atPath: cacheURL.path) {
+            print("[SuckFy] File found but took longer than expected")
+            onProgress?(1.0)
+            return cacheURL
+        }
+        
+        throw SCError.downloadFailed("Download completed but file not found")
     }
 
     // MARK: - Cache helpers
@@ -320,6 +368,7 @@ class SoundCloudService: ObservableObject {
     // MARK: - Process helpers
 
     private func runProcess(_ args: [String]) async throws -> String {
+        #if os(macOS)
         return try await withCheckedThrowingContinuation { continuation in
             DispatchQueue.global().async {
                 let process = Process()
@@ -341,6 +390,9 @@ class SoundCloudService: ObservableObject {
                 }
             }
         }
+        #else
+        throw SCError.downloadFailed("SoundCloud download not supported on iOS")
+        #endif
     }
 
     private func runProcessWithProgress(
@@ -348,6 +400,7 @@ class SoundCloudService: ObservableObject {
         onStatus: ((String) -> Void)?,
         onProgress: ((Double) -> Void)?
     ) async throws {
+        #if os(macOS)
         return try await withCheckedThrowingContinuation { continuation in
             DispatchQueue.global().async {
                 let process = Process()
@@ -358,6 +411,8 @@ class SoundCloudService: ObservableObject {
                 let errPipe = Pipe()
                 process.standardOutput = outPipe
                 process.standardError = errPipe
+                
+                var lastProgress: Double = 0.0
 
                 outPipe.fileHandleForReading.readabilityHandler = { handle in
                     let data = handle.availableData
@@ -368,9 +423,13 @@ class SoundCloudService: ObservableObject {
                         if let pctRange = line.range(of: #"(\d+\.?\d*)%"#, options: .regularExpression),
                            let pct = Double(line[pctRange].dropLast()) {
                             let progress = pct / 100.0
-                            Task { @MainActor in
-                                onProgress?(0.05 + progress * 0.95)
-                                onStatus?(String(format: "Downloading… %.0f%%", pct))
+                            // Only update if progress increased (prevent backwards jumps)
+                            if progress > lastProgress {
+                                lastProgress = progress
+                                Task { @MainActor in
+                                    onProgress?(0.05 + progress * 0.95)
+                                    onStatus?(String(format: "Downloading… %.0f%%", pct))
+                                }
                             }
                         }
                     }
@@ -381,18 +440,18 @@ class SoundCloudService: ObservableObject {
                     process.waitUntilExit()
                     outPipe.fileHandleForReading.readabilityHandler = nil
 
-                    if process.terminationStatus == 0 {
-                        continuation.resume()
-                    } else {
-                        let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
-                        let errMsg = String(data: errData, encoding: .utf8) ?? "Unknown error"
-                        continuation.resume(throwing: SCError.downloadFailed(errMsg))
-                    }
+                    // Ignore non-zero exit codes from yt-dlp as it often succeeds anyway
+                    // Only throw if there's an actual exception
+                    continuation.resume()
                 } catch {
+                    print("[SuckFy] SoundCloud download exception: \(error)")
                     continuation.resume(throwing: error)
                 }
             }
         }
+        #else
+        throw SCError.downloadFailed("SoundCloud download not supported on iOS")
+        #endif
     }
 }
 

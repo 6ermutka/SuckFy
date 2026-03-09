@@ -3,6 +3,8 @@ import SwiftUI
 @main
 struct DotifyApp: App {
     @StateObject private var player = PlayerCore()
+    @StateObject private var library = LibraryManager.shared
+    @StateObject private var localization = LocalizationService.shared
     @AppStorage("colorScheme") private var colorSchemePref: String = "dark"
 
     var preferredScheme: ColorScheme? {
@@ -14,10 +16,13 @@ struct DotifyApp: App {
     }
 
     var body: some Scene {
+        #if os(macOS)
         // Main window — macOS Sequoia style: hidden title bar with vibrancy
         Window("SuckFy", id: "main") {
             MainView()
                 .environmentObject(player)
+                .environmentObject(library)
+                .environmentObject(localization)
                 .frame(minWidth: 880, minHeight: 580)
                 .preferredColorScheme(preferredScheme)
         }
@@ -45,10 +50,20 @@ struct DotifyApp: App {
         MenuBarExtra {
             MenuBarPlayerView()
                 .environmentObject(player)
+                .environmentObject(library)
         } label: {
             Image(systemName: player.isPlaying ? "music.note" : "music.note.slash")
                 .symbolEffect(.pulse, isActive: player.isPlaying)
         }
         .menuBarExtraStyle(.window)
+        #elseif os(iOS)
+        // iOS version - WindowGroup without macOS-specific modifiers
+        WindowGroup {
+            MainView()
+                .environmentObject(player)
+                .environmentObject(library)
+                .preferredColorScheme(preferredScheme)
+        }
+        #endif
     }
 }

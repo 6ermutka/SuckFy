@@ -17,7 +17,7 @@ struct NowPlayingView: View {
                     LazyVStack(spacing: 2) {
                         ForEach(Array(playlist.tracks.enumerated()), id: \.element.id) { i, track in
                             TrackListRow(track: track, index: i, isHovered: hoveredId == track.id)
-                                .onHover { hoveredId = $0 ? track.id : nil }
+                                .platformHover(id: track.id, hoveredID: $hoveredId)
                                 .onTapGesture(count: 2) { player.play(track, in: playlist) }
                                 .environmentObject(library)
                         }

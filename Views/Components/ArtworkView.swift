@@ -1,5 +1,13 @@
 import SwiftUI
 
+#if os(macOS)
+import AppKit
+typealias PlatformImage = NSImage
+#elseif os(iOS)
+import UIKit
+typealias PlatformImage = UIImage
+#endif
+
 struct ArtworkView: View {
     let url: URL?
     let size: CGFloat
@@ -8,7 +16,7 @@ struct ArtworkView: View {
     var editable: Bool = false
     
     @StateObject private var cache = ArtworkCacheService.shared
-    @State private var cachedImage: NSImage?
+    @State private var cachedImage: PlatformImage?
     @State private var isLoading = false
     @State private var showImagePicker = false
     
@@ -16,6 +24,7 @@ struct ArtworkView: View {
         Group {
             if let trackID = trackID, let customURL = cache.getCustomArtwork(for: trackID) {
                 // Show custom artwork
+                #if os(macOS)
                 if let nsImage = NSImage(contentsOf: customURL) {
                     Image(nsImage: nsImage)
                         .resizable()
@@ -23,11 +32,26 @@ struct ArtworkView: View {
                 } else {
                     placeholderView
                 }
+                #elseif os(iOS)
+                if let uiImage = UIImage(contentsOfFile: customURL.path) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } else {
+                    placeholderView
+                }
+                #endif
             } else if let cachedImage = cachedImage {
                 // Show cached image
+                #if os(macOS)
                 Image(nsImage: cachedImage)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
+                #elseif os(iOS)
+                Image(uiImage: cachedImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                #endif
             } else if isLoading {
                 ProgressView()
                     .frame(width: size, height: size)
@@ -130,9 +154,9 @@ struct ArtworkView: View {
         
         // Try to load from cache or download
         if let data = await cache.downloadAndCache(url: url),
-           let nsImage = NSImage(data: data) {
+           let platformImage = PlatformImage(data: data) {
             await MainActor.run {
-                cachedImage = nsImage
+                cachedImage = platformImage
                 isLoading = false
             }
         } else {

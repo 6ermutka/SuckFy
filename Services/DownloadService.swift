@@ -255,8 +255,22 @@ actor DownloadService {
     }
 
     func cacheFile(for trackID: String) -> URL {
-        // Check for any cached extension
         let extensions = ["mp4", "m4a", "mp3", "flac"]
+        
+        // Check if it's a SoundCloud track
+        if trackID.hasPrefix("sc:") {
+            let scID = String(trackID.dropFirst(3))
+            let soundCloudCache = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("Dotify/SoundCloud", isDirectory: true)
+            
+            for ext in extensions {
+                let url = soundCloudCache.appendingPathComponent("\(scID).\(ext)")
+                if FileManager.default.fileExists(atPath: url.path) { return url }
+            }
+            return soundCloudCache.appendingPathComponent("\(scID).mp3")
+        }
+        
+        // Check for any cached extension in main cache
         for ext in extensions {
             let url = cacheDirectory.appendingPathComponent("\(trackID).\(ext)")
             if FileManager.default.fileExists(atPath: url.path) { return url }
@@ -277,6 +291,102 @@ actor DownloadService {
         if FileManager.default.fileExists(atPath: cacheDirectory.path) {
             try FileManager.default.removeItem(at: cacheDirectory)
         }
+    }
+    
+    // MARK: - Get all cached tracks
+    
+    func getAllCachedTracks() -> [String] {
+        var trackIDs: [String] = []
+        let extensions = ["mp4", "m4a", "mp3", "flac"]
+        
+        // Get tracks from main cache directory (Spotify/iTunes)
+        if let files = try? FileManager.default.contentsOfDirectory(at: cacheDirectory, includingPropertiesForKeys: nil) {
+            let spotifyTracks = files.compactMap { url -> String? in
+                let filename = url.deletingPathExtension().lastPathComponent
+                let ext = url.pathExtension
+                guard extensions.contains(ext) else { return nil }
+                return filename
+            }
+            trackIDs.append(contentsOf: spotifyTracks)
+        }
+        
+        // Get tracks from SoundCloud cache directory
+        let soundCloudCache = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Dotify/SoundCloud", isDirectory: true)
+        
+        if let files = try? FileManager.default.contentsOfDirectory(at: soundCloudCache, includingPropertiesForKeys: nil) {
+            let scTracks = files.compactMap { url -> String? in
+                let filename = url.deletingPathExtension().lastPathComponent
+                let ext = url.pathExtension
+                guard extensions.contains(ext) else { return nil }
+                // Add "sc:" prefix to identify SoundCloud tracks
+                return "sc:\(filename)"
+            }
+            trackIDs.append(contentsOf: scTracks)
+        }
+        
+        return trackIDs
+    }
+    
+    // MARK: - Delete cached track
+    
+    func deleteCachedTrack(_ trackID: String) throws {
+        let extensions = ["mp4", "m4a", "mp3", "flac"]
+        
+        // Check if it's a SoundCloud track
+        if trackID.hasPrefix("sc:") {
+            let scID = String(trackID.dropFirst(3))
+            let soundCloudCache = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("Dotify/SoundCloud", isDirectory: true)
+            
+            for ext in extensions {
+                let url = soundCloudCache.appendingPathComponent("\(scID).\(ext)")
+                if FileManager.default.fileExists(atPath: url.path) {
+                    try FileManager.default.removeItem(at: url)
+                    print("[SuckFy] Deleted SoundCloud cached track: \(scID).\(ext)")
+                }
+            }
+        } else {
+            // Delete from main cache
+            for ext in extensions {
+                let url = cacheDirectory.appendingPathComponent("\(trackID).\(ext)")
+                if FileManager.default.fileExists(atPath: url.path) {
+                    try FileManager.default.removeItem(at: url)
+                    print("[SuckFy] Deleted cached track: \(trackID).\(ext)")
+                }
+            }
+        }
+    }
+    
+    // MARK: - Get cache file size for a track
+    
+    func getCachedFileSize(_ trackID: String) -> Int64 {
+        let extensions = ["mp4", "m4a", "mp3", "flac"]
+        
+        // Check if it's a SoundCloud track
+        if trackID.hasPrefix("sc:") {
+            let scID = String(trackID.dropFirst(3))
+            let soundCloudCache = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("Dotify/SoundCloud", isDirectory: true)
+            
+            for ext in extensions {
+                let url = soundCloudCache.appendingPathComponent("\(scID).\(ext)")
+                if let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
+                   let size = attrs[.size] as? Int64 {
+                    return size
+                }
+            }
+        } else {
+            // Check main cache
+            for ext in extensions {
+                let url = cacheDirectory.appendingPathComponent("\(trackID).\(ext)")
+                if let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
+                   let size = attrs[.size] as? Int64 {
+                    return size
+                }
+            }
+        }
+        return 0
     }
 }
 

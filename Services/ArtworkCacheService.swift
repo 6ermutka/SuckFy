@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import Combine
 import CryptoKit
 
 /// Service for caching artwork images to disk
@@ -14,7 +15,7 @@ class ArtworkCacheService: ObservableObject {
     // Track custom artwork overrides (trackID -> local file path)
     @Published private(set) var customArtwork: [String: URL] = [:]
     private let customArtworkKey = "suckfy.customArtwork"
-    private let defaults = UserDefaults(suiteName: "com.suckfy.musicplayer") ?? UserDefaults.standard
+    private let defaults = UserDefaults.standard
     
     private init() {
         // Create cache directory in app support

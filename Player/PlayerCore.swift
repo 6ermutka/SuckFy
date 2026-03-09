@@ -3,6 +3,10 @@ import SwiftUI
 import Combine
 import AVFoundation
 
+#if os(iOS)
+import UIKit
+#endif
+
 enum RepeatMode { case off, one, all }
 
 @MainActor
@@ -31,7 +35,8 @@ class PlayerCore: ObservableObject {
     @Published var downloadProgress: Double = 0      // 0.0 – 1.0
     @Published var downloadStatus: String = ""       // "Searching…", "Downloading… 2.3 MB", etc.
 
-    // MARK: - Private
+    // MARK: - Services
+    private let downloadService = DownloadService.shared
     private let eq = EqualizerService.shared
     private var audioFile: AVAudioFile?
     private var displayTimer: Timer?

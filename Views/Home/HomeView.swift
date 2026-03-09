@@ -3,14 +3,15 @@ import SwiftUI
 struct HomeView: View {
     @EnvironmentObject var player: PlayerCore
     @EnvironmentObject var library: LibraryManager
+    @ObservedObject private var localization = LocalizationService.shared
     @State private var hoveredTrackId: String?
 
     var greeting: String {
         let h = Calendar.current.component(.hour, from: Date())
         switch h {
-        case 5..<12: return "Good morning"
-        case 12..<17: return "Good afternoon"
-        default: return "Good evening"
+        case 5..<12: return tr("Good morning")
+        case 12..<17: return tr("Good afternoon")
+        default: return tr("Good evening")
         }
     }
 
@@ -25,11 +26,11 @@ struct HomeView: View {
 
                 // Recently Played
                 if !library.recentlyPlayed.isEmpty {
-                    sectionHeader("Recently Played")
+                    sectionHeader(tr("Recently Played"))
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 16) {
                             ForEach(library.recentlyPlayed.prefix(10)) { track in
-                                RecentTrackCard(track: track)
+                                RecentTrackCard(track: track, hoveredTrackId: $hoveredTrackId)
                             }
                         }
                         .padding(.horizontal, 24)
@@ -40,10 +41,10 @@ struct HomeView: View {
                         Image(systemName: "music.note.tv")
                             .font(.system(size: 52, weight: .light))
                             .foregroundStyle(.quaternary)
-                        Text("Search for music to get started")
+                        Text(tr("Search for music to get started"))
                             .font(.system(size: 18, weight: .semibold))
                             .foregroundStyle(.secondary)
-                        Text("Use the Search tab to find Spotify tracks")
+                        Text(tr("Use the Search tab to find Spotify tracks"))
                             .font(.system(size: 14))
                             .foregroundStyle(.tertiary)
                     }
@@ -53,7 +54,7 @@ struct HomeView: View {
 
                 // Liked Songs quick access
                 if !library.likedSongs.isEmpty {
-                    sectionHeader("Liked Songs")
+                    sectionHeader(tr("Liked Songs"))
                     LazyVGrid(columns: [
                         GridItem(.flexible(), spacing: 12),
                         GridItem(.flexible(), spacing: 12),
@@ -61,7 +62,7 @@ struct HomeView: View {
                     ], spacing: 12) {
                         ForEach(library.likedSongs.prefix(6)) { track in
                             QuickTrackTile(track: track, isHovered: hoveredTrackId == track.id)
-                                .onHover { hoveredTrackId = $0 ? track.id : nil }
+                                .platformHover(id: track.id, hoveredID: $hoveredTrackId)
                                 .onTapGesture { player.play(track) }
                         }
                     }
@@ -85,15 +86,17 @@ struct HomeView: View {
 // MARK: - Recent Track Card (horizontal scroll)
 struct RecentTrackCard: View {
     let track: Track
-    @State private var isHovered = false
+    @Binding var hoveredTrackId: String?
     @EnvironmentObject var player: PlayerCore
 
     var isCurrent: Bool { player.currentTrack?.id == track.id }
+    var isHovered: Bool { hoveredTrackId == track.id }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             ZStack(alignment: .bottomTrailing) {
                 ArtworkView(url: track.artworkURL, size: 150, trackID: track.id)
+                #if os(macOS)
                 if isHovered {
                     Button { player.play(track) } label: {
                         Image(systemName: isCurrent && player.isPlaying ? "pause.fill" : "play.fill")
@@ -108,8 +111,10 @@ struct RecentTrackCard: View {
                     .padding(8)
                     .transition(.scale.combined(with: .opacity))
                 }
+                #endif
             }
             .animation(.spring(response: 0.3, dampingFraction: 0.75), value: isHovered)
+            .onTapGesture { player.play(track) }
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(track.title)
@@ -129,7 +134,7 @@ struct RecentTrackCard: View {
             RoundedRectangle(cornerRadius: 14)
                 .stroke(isCurrent ? Color.green.opacity(0.4) : Color.clear, lineWidth: 1.5)
         )
-        .onHover { isHovered = $0 }
+        .platformHover(id: track.id, hoveredID: $hoveredTrackId)
         .contentShape(Rectangle())
     }
 }

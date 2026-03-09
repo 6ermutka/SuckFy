@@ -195,7 +195,7 @@ struct QueueTrackRow: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
         .background(isHovered ? Color.primary.opacity(0.05) : Color.clear)
-        .onHover { isHovered = $0 }
+        .platformHover(isHovered: $isHovered)
     }
 }
 
