@@ -1,20 +1,23 @@
-.build/
-*.o
-*.d
-*.swp
-.DS_Store
-xcuserdata/
-*.xcuserstate
-DerivedData/
-*.resolved
+# Xcode
 build/
-*.xcodeproj
+*.xcuserdata
+*.xcworkspace
+*.xcuserdatad
+.DS_Store
+.swiftpm/xcode/
+DerivedData/
 
-# App bundle and icons
-SuckFy.app/
-SuckFy.iconset/
-*.icns
-suckfy.png
+# Swift Package Manager
+.build/
+.swiftpm/
 
-# Info.plist is generated
+# App
+SuckFy.app
+*.zip
+
+# Temporary
+tmp_*
 Info.plist
+
+# Icon files
+*.icns
