@@ -1,59 +1,58 @@
 # SuckFy
 
-🎵 **SuckFy** - удобный музыкальный плеер для macOS с поддержкой Spotify и SoundCloud.
+🎵 Удобный музыкальный плеер для macOS с поддержкой Spotify, SoundCloud и локальных файлов.
 
-A convenient music player for macOS with Spotify and SoundCloud support.
+## ✨ Возможности
 
-## ✨ Features / Возможности
+- 🎵 **Воспроизведение из разных источников** - Spotify, SoundCloud и локальные файлы
+- 💾 **Умное кэширование** - Автоматическая загрузка и офлайн воспроизведение
+- 📚 **Управление библиотекой** - Скачанные треки с фильтрами по источникам
+- 📥 **Импорт локальных треков** - Добавляйте свои MP3, M4A, FLAC файлы
+- ❤️ **Плейлисты и избранное** - Создавайте плейлисты и сохраняйте любимые песни
+- 🎨 **Нативный macOS интерфейс** - Красивый SwiftUI дизайн
+- 🌍 **Двуязычность** - Полная локализация на русский и английский
+- 🌙 **Темная/Светлая темы** - Интеграция с системными настройками
+- ⚙️ **Настраиваемость** - Изменение папки кэша, управление хранилищем
+- 🔍 **Умный поиск** - Поиск по библиотеке и фильтрация
 
-- 🎵 **Multi-source playback** - Spotify, SoundCloud, and local files
-- 💾 **Smart caching** - Automatic download and offline playback
-- 📚 **Library management** - Downloaded tracks with filters (Spotify/SoundCloud/Import)
-- 📥 **Import local tracks** - Add your MP3, M4A, FLAC files
-- ❤️ **Playlists & Likes** - Create playlists and save favorite songs
-- 🎨 **Native macOS UI** - Beautiful SwiftUI interface
-- 🌍 **Bilingual** - Full English/Russian localization
-- 🌙 **Dark/Light themes** - System-integrated theme switching
-- ⚙️ **Customizable** - Change cache location, manage storage
-
-## 🚀 Requirements / Требования
+## 🚀 Требования
 
 - macOS 14.0+
-- yt-dlp (for SoundCloud)
-- ffmpeg (for audio conversion)
+- yt-dlp (для SoundCloud)
+- ffmpeg (для конвертации аудио)
 
-## 📦 Installation / Установка
+## 📦 Установка
 
-### Via Homebrew (dependencies):
+### Установка зависимостей через Homebrew:
 ```bash
 brew install yt-dlp ffmpeg
 ```
 
-### Download & Run:
-1. Download `SuckFy.app` from [Releases](https://github.com/YOUR_USERNAME/SuckFy/releases)
-2. Move to Applications folder
-3. Open and enjoy!
+### Скачать и запустить:
+1. Скачайте `SuckFy.app` из раздела [Releases](https://github.com/6ermutka/SuckFy/releases)
+2. Переместите в папку Программы
+3. Откройте и наслаждайтесь!
 
-## 🎯 Usage / Использование
+## 🎯 Использование
 
-1. **Search** - Find tracks from Spotify or paste SoundCloud links
-2. **Import** - Add your local music files (Settings → Import)
-3. **Library** - View all downloaded tracks with source filters
-4. **Settings** - Change language (EN/RU), manage cache, import files
+1. **Поиск** - Находите треки из Spotify или вставляйте ссылки SoundCloud
+2. **Импорт** - Добавляйте свои музыкальные файлы (Настройки → Импорт)
+3. **Библиотека** - Просматривайте все скачанные треки с фильтрами по источникам
+4. **Настройки** - Меняйте язык (RU/EN), управляйте кэшем, импортируйте файлы
 
-## 🛠️ Build from Source
+## 🛠️ Сборка из исходников
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/SuckFy.git
+git clone https://github.com/6ermutka/SuckFy.git
 cd SuckFy
 swift build -c release
 open SuckFy.app
 ```
 
-## 📝 License
+## 📝 Лицензия
 
-MIT License - feel free to use and modify!
+MIT License
 
 ---
 
-Made with ❤️ for music lovers
+Сделано с ❤️ для любителей музыки
