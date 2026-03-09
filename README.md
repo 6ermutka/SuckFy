@@ -1,7 +1,7 @@
 # SuckFy
 <img width="1466" height="1036" alt="22" src="https://github.com/user-attachments/assets/5ad2bfa3-ad31-4056-a742-fe143ab913c1" />
 
-🎵 Удобный музыкальный плеер для macOS с поддержкой Spotify, SoundCloud и локальных файлов.
+Плеер для macOS с поддержкой Spotify, SoundCloud и локальных файлов.
 
 ## ✨ Возможности
 
