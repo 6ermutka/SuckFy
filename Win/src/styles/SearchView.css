@@ -1,0 +1,349 @@
+.search-view {
+  width: 100%;
+  height: 100%;
+}
+
+.search-tabs {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  align-items: center;
+}
+
+.tab {
+  padding: 8px 16px;
+  background: none;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 20px;
+  transition: all var(--transition);
+}
+
+.tab:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.tab.active {
+  color: var(--accent-primary);
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.tab.active:first-child {
+  color: #22c55e;
+}
+
+.tab.active:last-child {
+  color: #ff8800;
+  background: rgba(255, 136, 0, 0.1);
+}
+
+.soundcloud-login {
+  margin-left: auto;
+  padding: 6px 12px;
+  background: rgba(255, 85, 0, 0.1);
+  border: 1px solid rgba(255, 85, 0, 0.3);
+  border-radius: 6px;
+  color: #ff5500;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.soundcloud-login:hover {
+  background: rgba(255, 85, 0, 0.2);
+  border-color: rgba(255, 85, 0, 0.5);
+}
+
+.soundcloud-login.authenticated {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.3);
+  color: #22c55e;
+  cursor: default;
+}
+
+.soundcloud-login.authenticated:hover {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.search-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 48px;
+}
+
+.search-input-wrapper,
+.link-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  transition: all var(--transition);
+}
+
+.search-input-wrapper:focus-within,
+.link-input-wrapper:focus-within {
+  background: var(--bg-tertiary);
+  border-color: var(--border-color-strong);
+  box-shadow: var(--shadow-sm);
+}
+
+.search-input-wrapper svg,
+.link-input-wrapper svg {
+  color: #888;
+  flex-shrink: 0;
+}
+
+.search-input,
+.link-input {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 14px;
+  outline: none;
+}
+
+.search-input::placeholder,
+.link-input::placeholder {
+  color: #666;
+}
+
+.play-link-button {
+  padding: 6px 16px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.play-link-button:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-color-strong);
+}
+
+.search-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  text-align: center;
+}
+
+.search-empty-state svg {
+  margin-bottom: 24px;
+}
+
+.search-empty-state h3 {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.search-empty-state p {
+  font-size: 14px;
+  color: #888;
+}
+
+/* Error message */
+.search-error {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  color: #ef4444;
+  font-size: 14px;
+  margin-bottom: 24px;
+}
+
+/* Search spinner */
+.search-spinner,
+.download-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #22c55e;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Search Results */
+.search-results {
+  margin-top: 24px;
+}
+
+.results-header {
+  margin-bottom: 16px;
+}
+
+.results-header h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.result-item {
+  display: grid;
+  grid-template-columns: 48px 1fr 60px auto 40px;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  transition: all var(--transition);
+  cursor: pointer;
+}
+
+.result-item:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-color-strong);
+  box-shadow: var(--shadow-sm);
+}
+
+.result-downloading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+}
+
+.result-artwork {
+  width: 48px;
+  height: 48px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #2a2a2a;
+}
+
+.result-artwork img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.result-info {
+  min-width: 0;
+}
+
+.result-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.result-artist {
+  font-size: 12px;
+  color: #888;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.result-duration {
+  text-align: right;
+  font-size: 13px;
+  color: #888;
+}
+
+.result-like,
+.result-more {
+  background: none;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+  z-index: 1;
+}
+
+.result-like:hover,
+.result-more:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.result-like:hover {
+  color: #22c55e;
+}
+
+.result-more:hover {
+  color: var(--text-primary);
+}
+
+/* Light theme */
+.app.light .tab {
+  color: var(--text-secondary);
+}
+
+.app.light .tab:hover,
+.app.light .tab.active {
+  color: var(--text-primary);
+}
+
+.app.light .result-title {
+  color: var(--text-primary);
+}
+
+.app.light .result-artist,
+.app.light .result-duration {
+  color: var(--text-secondary);
+}
+
+.app.light .result-artwork {
+  background: var(--bg-tertiary);
+}
+
+.app.light .result-item:hover {
+  background: var(--hover-bg);
+}
+
+.app.light .result-like,
+.app.light .result-more {
+  color: var(--text-secondary);
+}
+
+.app.light .result-like:hover,
+.app.light .result-more:hover {
+  background: var(--hover-bg);
+  color: var(--text-primary);
+}

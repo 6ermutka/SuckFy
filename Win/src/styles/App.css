@@ -1,0 +1,269 @@
+.app {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #121212;
+  color: #ffffff;
+}
+
+.app.dark {
+  --bg-primary: #0a0a0a;
+  --bg-secondary: #121212;
+  --bg-tertiary: #1a1a1a;
+  --bg-hover: rgba(255, 255, 255, 0.07);
+  --bg-active: rgba(255, 255, 255, 0.12);
+
+  --text-primary: #ffffff;
+  --text-secondary: #b3b3b3;
+  --text-tertiary: #6b7280;
+
+  --border-color: rgba(255, 255, 255, 0.08);
+  --border-color-strong: rgba(255, 255, 255, 0.18);
+
+  --accent-primary: #22c55e;
+  --accent-primary-hover: #16a34a;
+
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+
+  --glass-bg: rgba(18, 18, 18, 0.85);
+  --glass-blur: 20px;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+
+  --transition: 0.2s ease;
+
+  /* Legacy aliases */
+  --hover-bg: var(--bg-hover);
+
+  background: #0a0a0a;
+  color: #ffffff;
+}
+
+.app.light {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8f9fa;
+  --bg-tertiary: #e9ecef;
+  --bg-hover: rgba(0, 0, 0, 0.04);
+  --bg-active: rgba(0, 0, 0, 0.08);
+
+  --text-primary: #0a0a0a;
+  --text-secondary: #6b7280;
+  --text-tertiary: #9ca3af;
+
+  --border-color: rgba(0, 0, 0, 0.08);
+  --border-color-strong: rgba(0, 0, 0, 0.18);
+
+  --accent-primary: #22c55e;
+  --accent-primary-hover: #16a34a;
+
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+
+  --glass-bg: rgba(255, 255, 255, 0.85);
+  --glass-blur: 20px;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+
+  --transition: 0.2s ease;
+
+  /* Legacy aliases */
+  --hover-bg: var(--bg-hover);
+
+  background: #ffffff;
+  color: #0a0a0a;
+}
+
+/* =============================================
+   LIGHT THEME GLOBAL OVERRIDES
+   ============================================= */
+
+/* --- Primary text (was #fff / #ffffff) --- */
+.app.light h1,
+.app.light h2,
+.app.light h3,
+.app.light h4,
+.app.light h5,
+.app.light h6,
+.app.light label,
+/* Settings */
+.app.light .settings-title,
+.app.light .section-title,
+.app.light .storage-label,
+.app.light .storage-value,
+.app.light .language-button,
+.app.light .import-title,
+/* Search */
+.app.light .tab,
+.app.light .result-title,
+/* Library */
+.app.light .library-title,
+.app.light .track-title,
+.app.light .track-name,
+/* Liked Songs */
+.app.light .liked-title,
+/* Playlist */
+.app.light .playlist-title,
+.app.light .playlist-type,
+.app.light .playlist-view .track-title,
+.app.light .playlist-view .empty-state h3,
+/* Queue */
+.app.light .queue-title,
+.app.light .queue-track-name,
+/* Home */
+.app.light .quick-track-name,
+.app.light .home-empty-state h3,
+/* Sidebar */
+.app.light .logo-text,
+.app.light .playlist-name {
+  color: var(--text-primary);
+}
+
+/* --- Secondary text (was #888 / #b3b3b3 / #666) --- */
+.app.light .tab:not(.active),
+.app.light .language-label,
+/* Settings */
+.app.light .language-button:not(.active),
+.app.light .storage-value,
+.app.light .import-subtitle,
+.app.light .soundcloud-subtitle,
+/* Search */
+.app.light .result-artist,
+.app.light .result-duration,
+.app.light .result-like,
+.app.light .result-more,
+/* Library */
+.app.light .library-label,
+.app.light .library-stats,
+.app.light .track-artist,
+.app.light .track-size,
+.app.light .track-duration,
+.app.light .track-number,
+.app.light .track-more,
+/* Liked Songs */
+.app.light .liked-label,
+.app.light .liked-stats,
+.app.light .track-like:not(.active),
+/* Playlist */
+.app.light .playlist-description,
+.app.light .playlist-stats,
+.app.light .playlist-count,
+.app.light .playlist-view .track-number,
+.app.light .playlist-view .track-artist,
+.app.light .playlist-view .track-duration,
+.app.light .playlist-view .empty-state p,
+/* Queue */
+.app.light .queue-close,
+.app.light .queue-section-label,
+.app.light .queue-track-artist,
+.app.light .queue-track-duration,
+.app.light .queue-track-remove,
+.app.light .queue-empty p,
+/* Home */
+.app.light .quick-track-artist,
+.app.light .home-empty-state p,
+/* Player */
+.app.light .progress-time,
+.app.light .control-button:not(.active),
+.app.light .extra-button,
+.app.light .player-queue:not(.active),
+/* Sidebar */
+.app.light .sidebar-toggle,
+.app.light .playlists-header {
+  color: var(--text-secondary);
+}
+
+/* --- Backgrounds --- */
+.app.light .queue-view {
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border-color);
+}
+
+.app.light .queue-header {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.app.light .result-item:hover,
+.app.light .track-row:hover,
+.app.light .playlist-view .track-row:hover,
+.app.light .queue-track:hover {
+  background: var(--hover-bg);
+}
+
+.app.light .result-artwork,
+.app.light .result-artwork {
+  background: var(--bg-tertiary);
+}
+
+/* PlaylistView gradient background */
+.app.light .playlist-view {
+  background: linear-gradient(180deg, #e9ecef 0%, #f8f9fa 300px);
+}
+
+/* Settings backgrounds */
+.app.light .language-button {
+  background: var(--bg-tertiary);
+  border-color: var(--border-color);
+}
+
+.app.light .language-button:hover {
+  background: var(--hover-bg);
+  color: var(--text-primary);
+}
+
+.app.light .language-button.active {
+  background: var(--bg-tertiary);
+  border-color: #22c55e;
+  color: var(--text-primary);
+}
+
+/* SoundCloud button stays orange — it's brand color, no change needed */
+
+/* --- Hover buttons --- */
+.app.light .result-like:hover,
+.app.light .result-more:hover,
+.app.light .track-more:hover,
+.app.light .queue-track-remove:hover,
+.app.light .playlist-view .track-like:hover,
+.app.light .playlist-view .track-remove:hover {
+  background: var(--hover-bg);
+  color: var(--text-primary);
+}
+
+/* --- Input fields --- */
+.app.light input,
+.app.light textarea,
+.app.light select {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+.app.light input::placeholder,
+.app.light textarea::placeholder {
+  color: var(--text-secondary);
+}
+
+.app-container {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Window controls area - for macOS style */
+.window-controls {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 40px;
+  -webkit-app-region: drag;
+  z-index: 1000;
+}

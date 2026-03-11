@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build output
+dist/
+dist-react/
+out/
+
+# Electron
+*.log
+*.pid
+*.seed
+*.pid.lock
+
+# Downloaded binaries
+electron/yt-dlp.exe
+electron/ffmpeg.exe
+electron/ffmpeg-temp/
+electron/ffmpeg.zip
+
+# Development
+.DS_Store
+.env
+.env.local
+.vscode/
+.idea/
+
+# Testing
+coverage/
+
+# Temporary files
+tmp_*
+*.tmp
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+Desktop.ini
+
+# User data (for development)
+# Uncomment if you don't want to track user data
+# ~/Documents/SuckFy/

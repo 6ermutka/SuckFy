@@ -1,0 +1,325 @@
+.queue-view {
+  width: 320px;
+  height: 100%;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border-left: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Header */
+.queue-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+/* Light theme */
+.app.light .queue-view {
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border-color);
+}
+
+.app.light .queue-header {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.app.light .queue-title {
+  color: var(--text-primary);
+}
+
+.app.light .queue-close {
+  color: var(--text-secondary);
+}
+
+.app.light .queue-close:hover {
+  color: var(--text-primary);
+}
+
+.app.light .queue-section-label {
+  color: var(--text-secondary);
+}
+
+.app.light .queue-track-name {
+  color: var(--text-primary);
+}
+
+.app.light .queue-track-artist,
+.app.light .queue-track-duration,
+.app.light .queue-track-remove,
+.app.light .queue-empty p {
+  color: var(--text-secondary);
+}
+
+.app.light .queue-track:hover {
+  background: var(--hover-bg);
+}
+
+.app.light .queue-track-remove:hover {
+  background: var(--hover-bg);
+  color: #ef4444;
+}
+
+.queue-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.queue-close {
+  background: none;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.queue-close:hover {
+  background: var(--bg-hover);
+  color: var(--accent-primary);
+}
+
+/* Now Playing */
+.now-playing-section {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.section-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+}
+
+.now-playing-track {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  background: rgba(34, 197, 94, 0.1);
+  border-radius: 8px;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.track-artwork {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  border-radius: 4px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #2a2a2a;
+}
+
+.track-artwork img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.playing-indicator {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 4px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 4px;
+}
+
+.playing-indicator .bar {
+  width: 2px;
+  background: #22c55e;
+  border-radius: 1px;
+  animation: playing 0.8s ease-in-out infinite;
+}
+
+.playing-indicator .bar:nth-child(1) {
+  height: 8px;
+  animation-delay: 0s;
+}
+
+.playing-indicator .bar:nth-child(2) {
+  height: 12px;
+  animation-delay: 0.2s;
+}
+
+.playing-indicator .bar:nth-child(3) {
+  height: 6px;
+  animation-delay: 0.4s;
+}
+
+@keyframes playing {
+  0%, 100% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(0.4);
+  }
+}
+
+.track-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.track-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #22c55e;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.track-artist {
+  font-size: 11px;
+  color: #888;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Queue Section */
+.queue-section {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 20px;
+}
+
+.queue-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.queue-track {
+  display: grid;
+  grid-template-columns: 24px 40px 1fr 40px 24px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  transition: all var(--transition);
+  cursor: pointer;
+}
+
+.queue-track:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.queue-track.active {
+  background: rgba(34, 197, 94, 0.08);
+  border-color: var(--accent-primary);
+}
+
+.queue-track-number {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.queue-track-artwork {
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+.artwork-placeholder {
+  font-size: 16px;
+}
+
+.queue-track-info {
+  min-width: 0;
+}
+
+.queue-track-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.queue-track-artist {
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.queue-track-duration {
+  text-align: right;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.queue-track-remove {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  opacity: 0;
+  transition: all 0.2s;
+}
+
+.queue-track:hover .queue-track-remove {
+  opacity: 1;
+}
+
+.queue-track-remove:hover {
+  background: var(--bg-hover);
+  color: #ef4444;
+}
+
+/* Empty state */
+.queue-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.queue-empty p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-top: 16px;
+}

@@ -1,0 +1,27 @@
+.main-content {
+  flex: 1;
+  background: var(--bg-primary);
+  overflow-y: auto;
+  position: relative;
+  transition: background 0.3s ease;
+}
+
+.view-container {
+  padding: 24px 32px;
+  padding-bottom: 120px;
+}
+
+.view-header {
+  margin-bottom: 32px;
+}
+
+.view-title {
+  font-size: 32px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.view-subtitle {
+  font-size: 14px;
+  color: #888;
+}

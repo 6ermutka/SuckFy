@@ -1,0 +1,71 @@
+{
+  "name": "suckfy-windows",
+  "version": "1.0.0",
+  "description": "SuckFy Music Player for Windows - Electron + React + TypeScript",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "electron:build": "node electron/build.js",
+    "postinstall": "node electron/download-ytdlp.js && node electron/download-ffmpeg.js"
+  },
+  "build": {
+    "appId": "com.suckfy.app",
+    "productName": "SuckFy",
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "public/SuckFy.ico",
+      "signAndEditExecutable": false,
+      "verifyUpdateCodeSignature": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "files": [
+      "dist-react/**/*",
+      "electron/**/*"
+    ],
+    "asarUnpack": [
+      "electron/yt-dlp.exe",
+      "electron/ffmpeg.exe"
+    ],
+    "extraResources": [
+      {
+        "from": "electron/yt-dlp.exe",
+        "to": "yt-dlp.exe"
+      },
+      {
+        "from": "electron/ffmpeg.exe",
+        "to": "ffmpeg.exe"
+      }
+    ]
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^25.4.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^4.2.0",
+    "concurrently": "^9.2.1",
+    "electron": "^40.8.0",
+    "electron-builder": "^26.8.1",
+    "png2icons": "^2.0.1",
+    "typescript": "^5.9.3",
+    "vite": "^5.0.0",
+    "wait-on": "^9.0.4"
+  },
+  "dependencies": {
+    "axios": "^1.13.6",
+    "music-metadata": "^11.12.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "yt-dlp-wrap": "^2.3.12"
+  }
+}
