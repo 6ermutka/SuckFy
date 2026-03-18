@@ -45,10 +45,4 @@ android/app/build/outputs/apk/release/app-release.apk
 - Android SDK
 - JDK 17
 
-## Версия
 
-**v1.1** - Исправления стабильности
-
----
-
-**Автор:** 6ermutka
