@@ -1,0 +1,11 @@
+export {HomeIcon} from './HomeIcon';
+export {SearchIcon} from './SearchIcon';
+export {LibraryIcon} from './LibraryIcon';
+export {SettingsIcon} from './SettingsIcon';
+export {PlayIcon, PauseIcon, SkipBackIcon, SkipForwardIcon} from './PlayIcon';
+export {HeartIcon} from './HeartIcon';
+export {MusicIcon} from './MusicIcon';
+export {ShuffleIcon} from './ShuffleIcon';
+export {RepeatIcon} from './RepeatIcon';
+export {default as VinylIcon} from './VinylIcon';
+export {default as TrashIcon} from './TrashIcon';
