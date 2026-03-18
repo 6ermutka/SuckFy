@@ -1,64 +1,63 @@
 # SuckFy Android
 
-Android версия музыкального плеера SuckFy на React Native.
+Музыкальный плеер для Android на React Native с поддержкой SoundCloud и Spotify.
 
 ## Возможности
 
-- 🎵 Поиск и скачивание треков из SoundCloud и Spotify (через iTunes API)
-- 📱 Полноценный оффлайн режим - все скачанные треки работают без интернета
-- 🎨 Современный UI с поддержкой темной темы
-- 🔔 Медиа уведомления с управлением воспроизведением
-- 📥 Скачивание треков в формате MP3
-- ❤️ Избранные треки и плейлисты
-- 🎨 Кэширование обложек
+- 🎵 Поиск и скачивание треков из SoundCloud и Spotify
+- 📱 Полный оффлайн режим
+- 🔔 Медиа уведомления
+- ❤️ Избранные треки
 
-## Требования
-
-- Node.js 18+
-- npm или yarn
-- Android SDK
-- JDK 17
-- React Native CLI
-
-## Быстрый старт
+## Установка
 
 ```bash
-# Установка зависимостей
 npm install
+```
 
-# Запуск на Android
+## Запуск на устройстве
+
+```bash
 npm run android
 ```
 
 ## Сборка Release APK
 
-```bash
-# Быстрая сборка
-./build_release.sh
+### Способ 1: Автоматически
 
-# Или вручную
+```bash
+chmod +x build_release.sh
+./build_release.sh
+```
+
+### Способ 2: Вручную
+
+```bash
 cd android
 ./gradlew assembleRelease
 ```
 
-APK будет в: `android/app/build/outputs/apk/release/app-release.apk`
+APK будет находиться в:
+```
+android/app/build/outputs/apk/release/app-release.apk
+```
+
+## Требования
+
+- Node.js 18+
+- Android SDK
+- JDK 17
 
 ## Документация
 
 - [Инструкции по сборке](ANDROID_BUILD_INSTRUCTIONS.md)
 - [Руководство разработчика](ANDROID_DEV_GUIDE.md)
 - [Быстрый старт](QUICK_START.md)
-- [Тестирование](TESTING_INSTRUCTIONS.md)
+- [HLS реализация](HLS_IMPLEMENTATION.md)
 
-## Версии
+## Версия
 
-### v1.1 (текущая)
-- ✅ Исправлена блокировка UI при недоступности SoundCloud
-- ✅ Убрана синхронная загрузка обложек в уведомлениях
-- ✅ Улучшена стабильность оффлайн режима
-
-### v1.0
-- Первый релиз Android версии
+**v1.1** - Исправлена блокировка UI при недоступности SoundCloud
 
 ## Автор
 
