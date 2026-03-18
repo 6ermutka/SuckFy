@@ -1,43 +1,40 @@
 # SuckFy Android
 
-Музыкальный плеер для Android на React Native с поддержкой SoundCloud и Spotify.
+Музыкальный плеер для Android с поддержкой SoundCloud и Spotify.
 
 ## Возможности
 
 - 🎵 Поиск и скачивание треков из SoundCloud и Spotify
-- 📱 Полный оффлайн режим
+- 📱 Оффлайн режим
 - 🔔 Медиа уведомления
 - ❤️ Избранные треки
 
-## Установка
+## Установка зависимостей
 
 ```bash
 npm install
 ```
 
-## Запуск на устройстве
+## Запуск
 
 ```bash
 npm run android
 ```
 
-## Сборка Release APK
+## Сборка APK
 
-### Способ 1: Автоматически
-
+### Автоматически
 ```bash
-chmod +x build_release.sh
 ./build_release.sh
 ```
 
-### Способ 2: Вручную
-
+### Вручную
 ```bash
 cd android
 ./gradlew assembleRelease
 ```
 
-APK будет находиться в:
+**Готовый APK:**
 ```
 android/app/build/outputs/apk/release/app-release.apk
 ```
@@ -48,17 +45,10 @@ android/app/build/outputs/apk/release/app-release.apk
 - Android SDK
 - JDK 17
 
-## Документация
-
-- [Инструкции по сборке](ANDROID_BUILD_INSTRUCTIONS.md)
-- [Руководство разработчика](ANDROID_DEV_GUIDE.md)
-- [Быстрый старт](QUICK_START.md)
-- [HLS реализация](HLS_IMPLEMENTATION.md)
-
 ## Версия
 
-**v1.1** - Исправлена блокировка UI при недоступности SoundCloud
+**v1.1** - Исправления стабильности
 
-## Автор
+---
 
-6ermutka
+**Автор:** 6ermutka

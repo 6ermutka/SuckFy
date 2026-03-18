@@ -1,5 +1,0 @@
-{
-  "react-native-tools.showUserTips": false,
-  "react-native-tools.projectRoot": "${workspaceFolder}",
-  "react-native.packager.port": 8081
-}
